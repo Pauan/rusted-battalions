@@ -284,17 +284,49 @@ impl Game {
                     grid.move_unit(&unit, MoveDirection::Down, 2.0).await;
                     grid.move_unit(&unit, MoveDirection::Right, 6.0).await;
                     grid.move_unit(&unit, MoveDirection::Down, 7.0).await;
+
                     grid.wait(2000.0).await;
+                    grid.destroy_unit(&unit).await;
+                    grid.wait(1000.0).await;
+
 
                     let coord = unit.coord.get();
 
-                    grid.units.insert(Unit::new(
+                    let fighter = Unit::new(
                         coord,
                         UnitClass::Fighter,
                         Nation::BlackHole,
-                    ));
+                    );
 
-                    grid.destroy_unit(&unit).await;
+                    grid.units.insert(fighter.clone());
+
+                    grid.wait(2000.0).await;
+                    grid.destroy_unit(&fighter).await;
+                    grid.wait(1000.0).await;
+
+
+                    let battleship = Unit::new(
+                        coord,
+                        UnitClass::Battleship,
+                        Nation::GreenEarth,
+                    );
+
+                    grid.units.insert(battleship.clone());
+
+                    grid.wait(2000.0).await;
+                    grid.destroy_unit(&battleship).await;
+                    grid.wait(1000.0).await;
+
+                    let megatank = Unit::new(
+                        coord,
+                        UnitClass::MegaTank,
+                        Nation::BlueMoon,
+                    );
+
+                    grid.units.insert(megatank.clone());
+
+                    grid.wait(2000.0).await;
+                    grid.destroy_unit(&megatank).await;
                 })
             })).collect::<Vec<_>>();
 
