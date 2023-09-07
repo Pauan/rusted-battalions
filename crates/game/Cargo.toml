@@ -1,0 +1,31 @@
+[package]
+name = "rusted-battalions-game"
+version = "0.1.0"
+description = "Game logic for Rusted Battalions"
+authors = ["Pauan <pauanyu+github@pm.me>"]
+categories = ["wasm"]
+readme = "README.md"
+license = "MIT"
+edition = "2021"
+
+[features]
+webgl = ["rusted-battalions-engine/webgl"]
+
+[dependencies]
+raw-window-handle = "0.5.2"
+wasm-bindgen-futures = "0.4.37"
+js-sys = "0.3.64"
+futures-signals = "0.3.32"
+futures = "0.3.28"
+dominator = "0.5.18"
+log = "0.4.20"
+
+[dependencies.image]
+version = "0.24.7"
+default-features = false
+features = [
+    "png",
+]
+
+[dependencies.rusted-battalions-engine]
+path = "../engine"

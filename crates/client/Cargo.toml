@@ -1,0 +1,30 @@
+[package]
+name = "rusted-battalions-client"
+version = "0.1.0"
+description = "Web client for Rusted Battalions"
+authors = ["Pauan <pauanyu+github@pm.me>"]
+categories = ["wasm"]
+readme = "README.md"
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+console_error_panic_hook = "0.1.6"
+wasm-bindgen = "0.2.74"
+futures-signals = "0.3.20"
+dominator = "0.5.18"
+raw-window-handle = "0.5.2"
+log = "0.4.20"
+console_log = "1.0.0"
+
+[dependencies.web-sys]
+version = "0.3.64"
+features = [
+    "HtmlCanvasElement",
+]
+
+[dependencies.rusted-battalions-game]
+path = "../game"
+features = [
+    "webgl",
+]
