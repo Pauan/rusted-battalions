@@ -184,6 +184,11 @@ impl Grid {
 
 
     #[inline]
+    pub(crate) fn start_futures(&self) {
+        self.spawner.start();
+    }
+
+    #[inline]
     pub(crate) fn spawn_future<S, F>(&self, spawner: &S, f: F)
         where S: Spawner,
               F: Future<Output = ()> + 'static {
@@ -196,16 +201,6 @@ impl Grid {
               I: IntoIterator,
               I::Item: Future<Output = ()> + 'static {
         self.spawner.spawn_iter(spawner, iter);
-    }
-
-    #[inline]
-    pub(crate) fn start_futures(&self) {
-        self.spawner.start();
-    }
-
-    #[inline]
-    pub(crate) fn cleanup_futures(&self) {
-        self.spawner.cleanup();
     }
 
 

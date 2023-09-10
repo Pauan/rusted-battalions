@@ -27,6 +27,18 @@ export default {
         rust({
             serverPath: "js/",
             watchPatterns: ["src/**", "../engine/**", "../game/**"],
+
+            // Makes debug behave similarly to release, except with debug symbols
+            //
+            // https://doc.rust-lang.org/cargo/reference/profiles.html#release
+            cargoArgs: [
+                "--config", "profile.dev.opt-level=3",
+                "--config", "profile.dev.debug=false",
+                "--config", "profile.dev.debug-assertions=false",
+                "--config", "profile.dev.overflow-checks=false",
+                "--config", "profile.dev.lto=true",
+                "--config", "profile.dev.codegen-units=1",
+            ],
             //debug: false,
         }),
 

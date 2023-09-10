@@ -1,10 +1,14 @@
 use rusted_battalions_engine::Spawner;
-use futures::future::{AbortHandle, Abortable};
+use futures::future::{AbortHandle, AbortRegistration, Abortable};
+use slab::Slab;
+
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::future::Future;
 use std::task::{Waker, Poll, Context};
 use std::pin::Pin;
+
+pub mod executor;
 
 
 // TODO impl Drop ?
@@ -113,14 +117,14 @@ impl Started {
 
 pub struct FutureSpawner {
     started: Started,
-    handles: Mutex<Vec<AbortHandle>>,
+    handles: Arc<Mutex<Slab<AbortHandle>>>,
 }
 
 impl FutureSpawner {
     pub fn new() -> Self {
         Self {
             started: Started::new(),
-            handles: Mutex::new(vec![]),
+            handles: Arc::new(Mutex::new(Slab::new())),
         }
     }
 
@@ -129,16 +133,12 @@ impl FutureSpawner {
         self.started.start();
     }
 
-    pub fn cleanup(&self) {
-        let mut lock = self.handles.lock().unwrap();
+    fn insert_handle(&self) -> (usize, AbortRegistration) {
+        let (handle, registration) = AbortHandle::new_pair();
 
-        lock.retain(move |handle| {
-            !handle.is_aborted()
-        });
-    }
+        let index = self.handles.lock().unwrap().insert(handle);
 
-    fn push_handle(&self, handle: AbortHandle) {
-        self.handles.lock().unwrap().push(handle);
+        (index, registration)
     }
 
     pub fn spawn<S, F>(&self, spawner: &S, future: F)
@@ -147,21 +147,21 @@ impl FutureSpawner {
 
         let wait_for = self.started.wait_for_start();
 
-        let (handle, registration) = AbortHandle::new_pair();
+        let (index, registration) = self.insert_handle();
 
-        self.push_handle(handle.clone());
+        let handles = self.handles.clone();
 
         let future = Abortable::new(async move {
             wait_for.await;
             future.await;
-
-            // This allows the AbortHandle to be cleaned up by the `cleanup()` method.
-            // TOOD test this
-            handle.abort();
         }, registration);
 
         spawner.spawn_local(Box::pin(async move {
             let _ = future.await;
+
+            // Cleans up handle when it's done
+            // TODO test this
+            handles.lock().unwrap().remove(index);
         }));
     }
 
@@ -179,9 +179,9 @@ impl FutureSpawner {
 
 impl Drop for FutureSpawner {
     fn drop(&mut self) {
-        let lock = self.handles.get_mut().unwrap();
+        let lock = self.handles.lock().unwrap();
 
-        for handle in lock.iter() {
+        for (_, handle) in lock.iter() {
             handle.abort();
         }
     }

@@ -13,6 +13,7 @@ use rusted_battalions_engine::{
     Texture, Node, TextureFormat,
 };
 
+use crate::util::future::executor;
 use grid::{ScreenSize};
 
 pub use grid::{Grid};
@@ -81,6 +82,8 @@ pub struct Game {
 
 impl Game {
     pub fn new(settings: GameSettings) -> Arc<Self> {
+        let spawner = Arc::new(executor::CustomSpawner);
+
         Arc::new(Self {
             unit_appearance: Mutable::new(settings.appearance),
 
@@ -88,7 +91,8 @@ impl Game {
 
             grid: Mutable::new(settings.grid),
 
-            spawner: settings.spawner,
+            spawner,
+            //spawner: settings.spawner,
         })
     }
 
@@ -360,19 +364,14 @@ impl<Window> GameEngine<Window> where Window: HasRawWindowHandle + HasRawDisplay
         {
             let grid = self.game.grid.lock_ref();
 
-            grid.cleanup_futures();
-
             grid.time.set(time);
+
+            executor::run_futures();
 
             // This ensures that we only start updating the grid after the first frame has been displayed.
             // This is necessary to make sure that the engine is fully warmed up and initialized before
             // it starts processing things.
-            if self.started {
-                grid.start_futures();
-
-            } else {
-                self.started = true;
-            }
+            grid.start_futures();
         }
 
         self.engine.render().unwrap();
