@@ -13,7 +13,6 @@ webgl = ["rusted-battalions-engine/webgl"]
 
 [dependencies]
 raw-window-handle = "0.5.2"
-wasm-bindgen-futures = "0.4.37"
 js-sys = "0.3.64"
 futures-signals = "0.3.32"
 futures = "0.3.28"

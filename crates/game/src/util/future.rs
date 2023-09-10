@@ -1,56 +1,188 @@
-use wasm_bindgen_futures::spawn_local;
-use futures_signals::signal::{Mutable, SignalExt};
-use futures::future::{BoxFuture, AbortHandle, abortable};
-use futures::stream::{StreamExt};
-use futures::channel::mpsc::{UnboundedSender, UnboundedReceiver, unbounded};
+use rusted_battalions_engine::Spawner;
+use futures::future::{AbortHandle, Abortable};
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::future::Future;
+use std::task::{Waker, Poll, Context};
+use std::pin::Pin;
+
+
+// TODO impl Drop ?
+struct StartedFuture {
+    index: usize,
+    state: Arc<StartedState>,
+}
+
+impl Future for StartedFuture {
+    type Output = ();
+
+    #[inline]
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        if self.state.has_started() {
+            Poll::Ready(())
+
+        } else {
+            self.state.set_waker(self.index, cx.waker().clone());
+            Poll::Pending
+        }
+    }
+}
+
+
+struct StartedState {
+    started: AtomicBool,
+    wakers: Mutex<Vec<Option<Waker>>>,
+}
+
+impl StartedState {
+    fn has_started(&self) -> bool {
+        self.started.load(Ordering::SeqCst)
+    }
+
+    fn wait_for_start(self: &Arc<Self>) -> impl Future<Output = ()> {
+        if self.has_started() {
+            StartedFuture {
+                index: 0,
+                state: self.clone(),
+            }
+
+        } else {
+            let index;
+
+            {
+                let mut lock = self.wakers.lock().unwrap();
+                index = lock.len();
+                lock.push(None);
+            }
+
+            StartedFuture {
+                index,
+                state: self.clone(),
+            }
+        }
+    }
+
+    fn set_waker(&self, index: usize, waker: Waker) {
+        let mut lock = self.wakers.lock().unwrap();
+
+        lock[index] = Some(waker);
+    }
+
+    fn start(&self) {
+        if !self.started.swap(true, Ordering::SeqCst) {
+            let mut lock = self.wakers.lock().unwrap();
+
+            for waker in lock.drain(..) {
+                if let Some(waker) = waker {
+                    waker.wake();
+                }
+            }
+
+            *lock = vec![];
+        }
+    }
+}
+
+
+struct Started {
+    state: Arc<StartedState>,
+}
+
+impl Started {
+    #[inline]
+    fn new() -> Self {
+        Self {
+            state: Arc::new(StartedState {
+                started: AtomicBool::new(false),
+                wakers: Mutex::new(vec![]),
+            }),
+        }
+    }
+
+    #[inline]
+    fn wait_for_start(&self) -> impl Future<Output = ()> {
+        self.state.wait_for_start()
+    }
+
+    #[inline]
+    fn start(&self) {
+        self.state.start();
+    }
+}
 
 
 pub struct FutureSpawner {
-    // TODO figure out a better way to wait until the game engine is warmed up
-    started: Mutable<bool>,
-    // TODO figure out a way to get rid of the mpsc
-    sender: UnboundedSender<BoxFuture<'static, ()>>,
-    handle: AbortHandle,
+    started: Started,
+    handles: Mutex<Vec<AbortHandle>>,
 }
 
 impl FutureSpawner {
     pub fn new() -> Self {
-        let (sender, receiver) = unbounded();
-
-        let started = Mutable::new(false);
-
-        let wait_for = started.signal().wait_for(true);
-
-        let (future, handle) = abortable(async move {
-            wait_for.await;
-            receiver.for_each_concurrent(None, move |future| future).await;
-        });
-
-        spawn_local(async move {
-            let _ = future.await;
-        });
-
         Self {
-            started,
-            sender,
-            handle,
+            started: Started::new(),
+            handles: Mutex::new(vec![]),
         }
     }
 
+    #[inline]
     pub fn start(&self) {
-        self.started.set_neq(true);
+        self.started.start();
+    }
+
+    pub fn cleanup(&self) {
+        let mut lock = self.handles.lock().unwrap();
+
+        lock.retain(move |handle| {
+            !handle.is_aborted()
+        });
+    }
+
+    fn push_handle(&self, handle: AbortHandle) {
+        self.handles.lock().unwrap().push(handle);
+    }
+
+    pub fn spawn<S, F>(&self, spawner: &S, future: F)
+        where S: Spawner,
+              F: Future<Output = ()> + 'static {
+
+        let wait_for = self.started.wait_for_start();
+
+        let (handle, registration) = AbortHandle::new_pair();
+
+        self.push_handle(handle.clone());
+
+        let future = Abortable::new(async move {
+            wait_for.await;
+            future.await;
+
+            // This allows the AbortHandle to be cleaned up by the `cleanup()` method.
+            // TOOD test this
+            handle.abort();
+        }, registration);
+
+        spawner.spawn_local(Box::pin(async move {
+            let _ = future.await;
+        }));
     }
 
     #[inline]
-    pub fn spawn<F>(&self, future: F) where F: Future<Output = ()> + Send + 'static {
-        self.sender.unbounded_send(Box::pin(future)).unwrap();
+    pub fn spawn_iter<S, I>(&self, spawner: &S, futures: I)
+        where S: Spawner,
+              I: IntoIterator,
+              I::Item: Future<Output = ()> + 'static {
+
+        for future in futures {
+            self.spawn(spawner, future);
+        }
     }
 }
 
 impl Drop for FutureSpawner {
-    #[inline]
     fn drop(&mut self) {
-        self.handle.abort();
+        let lock = self.handles.get_mut().unwrap();
+
+        for handle in lock.iter() {
+            handle.abort();
+        }
     }
 }

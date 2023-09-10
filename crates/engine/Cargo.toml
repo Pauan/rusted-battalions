@@ -14,10 +14,12 @@ webgl = ["wgpu/webgl"]
 
 [dependencies]
 raw-window-handle = "0.5.2"
+static_assertions = "1.1.0"
 wgpu_macros = "0.1.0"
-wasm-bindgen-futures = "0.4.37"
 futures-signals = "0.3.32"
 futures = "0.3.28"
+
+# TODO remove this
 log = "0.4.20"
 
 [dependencies.image]
@@ -32,4 +34,3 @@ features = [
 
 [dependencies.wgpu]
 version = "0.17.0"
-features = []

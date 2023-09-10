@@ -10,6 +10,7 @@ edition = "2021"
 
 [dependencies]
 console_error_panic_hook = "0.1.6"
+wasm-bindgen-futures = "0.4.37"
 wasm-bindgen = "0.2.74"
 futures-signals = "0.3.20"
 dominator = "0.5.18"

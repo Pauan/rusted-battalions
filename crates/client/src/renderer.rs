@@ -1,9 +1,11 @@
-use rusted_battalions_game::{Game, Grid, UnitAppearance};
+use rusted_battalions_game::{Game, GameSettings, Grid, UnitAppearance, Spawner};
 
 use dominator::{Dom, DomBuilder, clone, html, dom_builder, with_node, apply_methods, events};
 use dominator::animation::{timestamps};
 use futures_signals::signal::{Mutable, SignalExt};
+use wasm_bindgen_futures::spawn_local;
 
+use std::pin::Pin;
 use std::sync::Arc;
 use std::future::Future;
 
@@ -33,6 +35,16 @@ fn wait_for_inserted<A, F>(f: F) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
 }
 
 
+struct WasmSpawner;
+
+impl Spawner for WasmSpawner {
+    #[inline]
+    fn spawn_local(&self, future: Pin<Box<dyn Future<Output = ()> + 'static>>) {
+        spawn_local(future);
+    }
+}
+
+
 pub struct Renderer {
     game: Arc<Game>,
 }
@@ -40,7 +52,11 @@ pub struct Renderer {
 impl Renderer {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
-            game: Game::new(UnitAppearance::default(), Grid::test()),
+            game: Game::new(GameSettings {
+                appearance: UnitAppearance::default(),
+                grid: Grid::test(),
+                spawner: Arc::new(WasmSpawner),
+            }),
         })
     }
 

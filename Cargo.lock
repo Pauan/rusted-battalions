@@ -916,6 +916,7 @@ dependencies = [
  "raw-window-handle",
  "rusted-battalions-game",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 
@@ -929,7 +930,7 @@ dependencies = [
  "image",
  "log",
  "raw-window-handle",
- "wasm-bindgen-futures",
+ "static_assertions",
  "wgpu",
  "wgpu_macros",
 ]
@@ -946,7 +947,6 @@ dependencies = [
  "log",
  "raw-window-handle",
  "rusted-battalions-engine",
- "wasm-bindgen-futures",
 ]
 
 [[package]]

@@ -1,6 +1,9 @@
 #![deny(warnings)]
 
 use wgpu;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
 use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle};
 use postprocess::Postprocess;
 
@@ -23,10 +26,23 @@ pub struct WindowSize {
 }
 
 
+pub trait Spawner {
+    fn spawn_local(&self, future: Pin<Box<dyn Future<Output = ()> + 'static>>);
+}
+
+impl<S> Spawner for Arc<S> where S: Spawner + ?Sized {
+    #[inline]
+    fn spawn_local(&self, future: Pin<Box<dyn Future<Output = ()> + 'static>>) {
+        (**self).spawn_local(future);
+    }
+}
+
+
 pub struct EngineSettings<Window> where Window: HasRawWindowHandle + HasRawDisplayHandle {
     pub window: Window,
     pub scene: Node,
     pub window_size: WindowSize,
+    pub spawner: Arc<dyn Spawner>,
 }
 
 
@@ -149,6 +165,10 @@ pub struct Engine<Window> {
     scene: Scene,
 }
 
+static_assertions::assert_not_impl_all!(EngineState: Send, Sync);
+static_assertions::assert_not_impl_all!(Option<Postprocess>: Send, Sync);
+static_assertions::assert_not_impl_all!(Scene: Send, Sync);
+
 impl<Window> Engine<Window> where Window: HasRawWindowHandle + HasRawDisplayHandle {
     pub async fn new(settings: EngineSettings<Window>) -> Self {
         let window = settings.window;
@@ -217,7 +237,7 @@ impl<Window> Engine<Window> where Window: HasRawWindowHandle + HasRawDisplayHand
             depth_buffer,
         };
 
-        let scene = Scene::new(&state, settings.scene);
+        let scene = Scene::new(&state, settings.scene, settings.spawner);
 
         let postprocess = None;
         //let postprocess = Some(Postprocess::new(&state));

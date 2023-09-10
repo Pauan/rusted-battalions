@@ -39,7 +39,7 @@ impl<T> SortedVec<T> {
         let mut lock = self.mutable.lock_mut();
 
         match lock.binary_search_by_key(&Arc::as_ptr(&value), Arc::as_ptr) {
-            Ok(index) => {
+            Ok(_) => {
                 panic!("Value already exists in SortedVec");
             },
             Err(index) => {
@@ -55,7 +55,7 @@ impl<T> SortedVec<T> {
             Ok(index) => {
                 lock.remove(index);
             },
-            Err(index) => {
+            Err(_) => {
                 panic!("Value doesn't exist in SortedVec");
             },
         }

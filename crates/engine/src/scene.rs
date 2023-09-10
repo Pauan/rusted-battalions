@@ -1,4 +1,8 @@
 use bytemuck::{Zeroable, Pod};
+use std::future::Future;
+use std::pin::Pin;
+
+use crate::Spawner;
 use crate::util::{Arc, Atomic, Lock};
 use crate::util::buffer::{Uniform, TextureBuffer, RgbaImage};
 use sprite::{SpriteRenderer, SpritePrerender};
@@ -568,15 +572,22 @@ impl Texture {
 pub(crate) struct SceneChanged {
     layout: Atomic<bool>,
     render: Atomic<bool>,
+    spawner: std::sync::Arc<dyn Spawner>,
 }
 
 impl SceneChanged {
     #[inline]
-    fn new() -> Arc<Self> {
+    fn new(spawner: std::sync::Arc<dyn Spawner>) -> Arc<Self> {
         Arc::new(Self {
             layout: Atomic::new(true),
             render: Atomic::new(true),
+            spawner,
         })
+    }
+
+    #[inline]
+    pub(crate) fn spawn_local(&self, future: Pin<Box<dyn Future<Output = ()> + 'static>>) {
+        self.spawner.spawn_local(future);
     }
 
     /// Notifies that the layout has changed.
@@ -696,8 +707,8 @@ pub(crate) struct Scene {
 
 impl Scene {
     #[inline]
-    pub(crate) fn new(engine: &crate::EngineState, mut root: Node) -> Self {
-        let changed = SceneChanged::new();
+    pub(crate) fn new(engine: &crate::EngineState, mut root: Node, spawner: std::sync::Arc<dyn Spawner>) -> Self {
+        let changed = SceneChanged::new(spawner);
 
         // This passes the SceneChanged into the Node, so that way the
         // Node signals can notify that the layout / render has changed.

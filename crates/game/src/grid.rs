@@ -1,11 +1,10 @@
 use std::sync::Arc;
 use std::future::Future;
 use futures_signals::signal::{Mutable, Signal, SignalExt};
-use futures_signals::signal_vec::{MutableVec, SignalVecExt};
-use futures::future::join_all;
+use futures_signals::signal_vec::{SignalVecExt};
 use dominator::clone;
 use rusted_battalions_engine as engine;
-use rusted_battalions_engine::{Node};
+use rusted_battalions_engine::{Node, Spawner};
 
 use crate::{Game};
 use crate::util::future::{FutureSpawner};
@@ -185,25 +184,28 @@ impl Grid {
 
 
     #[inline]
-    pub(crate) fn spawn_future<F>(&self, f: F) where F: Future<Output = ()> + Send + 'static {
-        self.spawner.spawn(f);
+    pub(crate) fn spawn_future<S, F>(&self, spawner: &S, f: F)
+        where S: Spawner,
+              F: Future<Output = ()> + 'static {
+        self.spawner.spawn(spawner, f);
     }
 
     #[inline]
-    pub(crate) fn spawn_futures<I>(&self, iter: I)
-        where I: IntoIterator,
-              I::Item: Future<Output = ()> + Send + 'static {
-
-        let f = join_all(iter);
-
-        self.spawn_future(async move {
-            let _ = f.await;
-        });
+    pub(crate) fn spawn_futures<S, I>(&self, spawner: &S, iter: I)
+        where S: Spawner,
+              I: IntoIterator,
+              I::Item: Future<Output = ()> + 'static {
+        self.spawner.spawn_iter(spawner, iter);
     }
 
     #[inline]
     pub(crate) fn start_futures(&self) {
         self.spawner.start();
+    }
+
+    #[inline]
+    pub(crate) fn cleanup_futures(&self) {
+        self.spawner.cleanup();
     }
 
 

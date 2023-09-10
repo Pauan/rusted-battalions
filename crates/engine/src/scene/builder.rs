@@ -1,4 +1,3 @@
-use wasm_bindgen_futures::spawn_local;
 use futures_signals::signal_vec::VecDiff;
 use futures::future::{AbortHandle, Abortable};
 use std::future::Future;
@@ -39,8 +38,8 @@ impl Callbacks {
         }
     }
 
-    pub(crate) fn spawn_future<F, C>(&mut self, callback: C)
-        where C: FnOnce(Arc<SceneChanged>) -> F + 'static,
+    pub(crate) fn spawn_local<F, C>(&mut self, callback: C)
+        where C: FnOnce(&Arc<SceneChanged>) -> F + 'static,
               F: Future<Output = ()> + 'static {
 
         let (handle, registration) = AbortHandle::new_pair();
@@ -50,12 +49,11 @@ impl Callbacks {
 
             move |root| {
                 if !handle.is_aborted() {
-                    let future = callback(root);
+                    let future = callback(&root);
 
-                    // TODO make the Future spawning customizable
-                    spawn_local(async move {
+                    root.spawn_local(Box::pin(async move {
                         let _ = Abortable::new(future, registration).await;
-                    });
+                    }));
                 }
             }
         });
@@ -301,7 +299,9 @@ macro_rules! simple_method {
         pub fn $signal_name<S>(mut self, signal: S) -> Self where S: Signal<Item = $type> + 'static {
             let state = self.state.clone();
 
-            self.callbacks.spawn_future(move |root| {
+            self.callbacks.spawn_local(move |root| {
+                let root = root.clone();
+
                 signal.for_each(move |value| {
                     let mut state = state.lock();
 
@@ -523,7 +523,9 @@ macro_rules! children_methods {
 
                 self.state.lock().children.push(option.clone().into_handle());
 
-                self.callbacks.spawn_future(move |root| {
+                self.callbacks.spawn_local(move |root| {
+                    let root = root.clone();
+
                     child.for_each(move |new_child| {
                         option.lock().update(new_child, &root);
                         async {}
@@ -543,8 +545,8 @@ macro_rules! children_methods {
 
                 let state = self.state.clone();
 
-                self.callbacks.spawn_future(move |root| {
-                    let mut children_state = $crate::scene::builder::ChildrenState::new(root);
+                self.callbacks.spawn_local(move |root| {
+                    let mut children_state = $crate::scene::builder::ChildrenState::new(root.clone());
 
                     children.for_each(move |change| {
                         let mut lock = state.lock();

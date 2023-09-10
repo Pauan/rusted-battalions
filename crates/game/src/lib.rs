@@ -16,6 +16,7 @@ use rusted_battalions_engine::{
 use grid::{ScreenSize};
 
 pub use grid::{Grid};
+pub use engine::Spawner;
 
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -61,22 +62,33 @@ impl Spritesheets {
 }
 
 
+pub struct GameSettings {
+    pub appearance: UnitAppearance,
+    pub grid: Arc<Grid>,
+    pub spawner: Arc<dyn Spawner>,
+}
+
+
 pub struct Game {
     pub unit_appearance: Mutable<UnitAppearance>,
 
     spritesheets: Spritesheets,
 
     grid: Mutable<Arc<Grid>>,
+
+    spawner: Arc<dyn Spawner>,
 }
 
 impl Game {
-    pub fn new(appearance: UnitAppearance, grid: Arc<Grid>) -> Arc<Self> {
+    pub fn new(settings: GameSettings) -> Arc<Self> {
         Arc::new(Self {
-            unit_appearance: Mutable::new(appearance),
+            unit_appearance: Mutable::new(settings.appearance),
 
             spritesheets: Spritesheets::new(),
 
-            grid: Mutable::new(grid),
+            grid: Mutable::new(settings.grid),
+
+            spawner: settings.spawner,
         })
     }
 
@@ -116,6 +128,7 @@ impl Game {
         let mut engine = Engine::new(EngineSettings {
             window,
             scene: Game::render(&self),
+            spawner: self.spawner.clone(),
             window_size: engine::WindowSize {
                 width: screen_size.width,
                 height: screen_size.height,
@@ -258,7 +271,7 @@ impl Game {
             use grid::explosion::ExplosionAnimation;
             use util::random::random;
 
-            grid.spawn_futures(grid.terrain.iter().map(|tile| {
+            grid.spawn_futures(&self.spawner, grid.terrain.iter().map(|tile| {
                 let x = tile.x as f32;
                 let y = tile.y as f32;
 
@@ -330,7 +343,7 @@ impl Game {
                 })
             })).collect::<Vec<_>>();
 
-            grid.spawn_futures(futures);
+            grid.spawn_futures(&self.spawner, futures);
         }
     }
 }
@@ -346,6 +359,8 @@ impl<Window> GameEngine<Window> where Window: HasRawWindowHandle + HasRawDisplay
     pub fn render(&mut self, time: f64) {
         {
             let grid = self.game.grid.lock_ref();
+
+            grid.cleanup_futures();
 
             grid.time.set(time);
 
