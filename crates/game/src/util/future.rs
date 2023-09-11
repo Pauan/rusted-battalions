@@ -1,4 +1,3 @@
-use rusted_battalions_engine::Spawner;
 use futures::future::{AbortHandle, AbortRegistration, Abortable};
 use slab::Slab;
 
@@ -141,9 +140,8 @@ impl FutureSpawner {
         (index, registration)
     }
 
-    pub fn spawn<S, F>(&self, spawner: &S, future: F)
-        where S: Spawner,
-              F: Future<Output = ()> + 'static {
+    pub fn spawn<F>(&self, future: F)
+        where F: Future<Output = ()> + 'static {
 
         let wait_for = self.started.wait_for_start();
 
@@ -156,7 +154,7 @@ impl FutureSpawner {
             future.await;
         }, registration);
 
-        spawner.spawn_local(Box::pin(async move {
+        executor::spawn_local(Box::pin(async move {
             let _ = future.await;
 
             // Cleans up handle when it's done
@@ -166,13 +164,12 @@ impl FutureSpawner {
     }
 
     #[inline]
-    pub fn spawn_iter<S, I>(&self, spawner: &S, futures: I)
-        where S: Spawner,
-              I: IntoIterator,
+    pub fn spawn_iter<I>(&self, futures: I)
+        where I: IntoIterator,
               I::Item: Future<Output = ()> + 'static {
 
         for future in futures {
-            self.spawn(spawner, future);
+            self.spawn(future);
         }
     }
 }

@@ -4,7 +4,7 @@ use futures_signals::signal::{Mutable, Signal, SignalExt};
 use futures_signals::signal_vec::{SignalVecExt};
 use dominator::clone;
 use rusted_battalions_engine as engine;
-use rusted_battalions_engine::{Node, Spawner};
+use rusted_battalions_engine::{Node};
 
 use crate::{Game};
 use crate::util::future::{FutureSpawner};
@@ -189,18 +189,16 @@ impl Grid {
     }
 
     #[inline]
-    pub(crate) fn spawn_future<S, F>(&self, spawner: &S, f: F)
-        where S: Spawner,
-              F: Future<Output = ()> + 'static {
-        self.spawner.spawn(spawner, f);
+    pub(crate) fn spawn_future<F>(&self, f: F)
+        where F: Future<Output = ()> + 'static {
+        self.spawner.spawn(f);
     }
 
     #[inline]
-    pub(crate) fn spawn_futures<S, I>(&self, spawner: &S, iter: I)
-        where S: Spawner,
-              I: IntoIterator,
+    pub(crate) fn spawn_futures<I>(&self, iter: I)
+        where I: IntoIterator,
               I::Item: Future<Output = ()> + 'static {
-        self.spawner.spawn_iter(spawner, iter);
+        self.spawner.spawn_iter(iter);
     }
 
 

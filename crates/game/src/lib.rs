@@ -17,7 +17,6 @@ use crate::util::future::executor;
 use grid::{ScreenSize};
 
 pub use grid::{Grid};
-pub use engine::Spawner;
 
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -66,7 +65,6 @@ impl Spritesheets {
 pub struct GameSettings {
     pub appearance: UnitAppearance,
     pub grid: Arc<Grid>,
-    pub spawner: Arc<dyn Spawner>,
 }
 
 
@@ -76,23 +74,16 @@ pub struct Game {
     spritesheets: Spritesheets,
 
     grid: Mutable<Arc<Grid>>,
-
-    spawner: Arc<dyn Spawner>,
 }
 
 impl Game {
     pub fn new(settings: GameSettings) -> Arc<Self> {
-        let spawner = Arc::new(executor::CustomSpawner);
-
         Arc::new(Self {
             unit_appearance: Mutable::new(settings.appearance),
 
             spritesheets: Spritesheets::new(),
 
             grid: Mutable::new(settings.grid),
-
-            spawner,
-            //spawner: settings.spawner,
         })
     }
 
@@ -132,7 +123,7 @@ impl Game {
         let mut engine = Engine::new(EngineSettings {
             window,
             scene: Game::render(&self),
-            spawner: self.spawner.clone(),
+            spawner: Arc::new(executor::CustomSpawner),
             window_size: engine::WindowSize {
                 width: screen_size.width,
                 height: screen_size.height,
@@ -260,7 +251,6 @@ impl Game {
         GameEngine {
             game: self.clone(),
             engine,
-            started: false,
         }
     }
 
@@ -275,7 +265,7 @@ impl Game {
             use grid::explosion::ExplosionAnimation;
             use util::random::random;
 
-            grid.spawn_futures(&self.spawner, grid.terrain.iter().map(|tile| {
+            grid.spawn_futures(grid.terrain.iter().map(|tile| {
                 let x = tile.x as f32;
                 let y = tile.y as f32;
 
@@ -347,7 +337,7 @@ impl Game {
                 })
             })).collect::<Vec<_>>();
 
-            grid.spawn_futures(&self.spawner, futures);
+            grid.spawn_futures(futures);
         }
     }
 }
@@ -356,7 +346,6 @@ impl Game {
 pub struct GameEngine<Window> {
     game: Arc<Game>,
     engine: Engine<Window>,
-    started: bool,
 }
 
 impl<Window> GameEngine<Window> where Window: HasRawWindowHandle + HasRawDisplayHandle {
