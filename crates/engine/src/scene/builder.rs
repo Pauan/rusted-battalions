@@ -399,13 +399,10 @@ macro_rules! location_methods {
                 /// which means it's the same size as its parent.
                 size,
                 size_signal,
-                $trigger_relayout,
+                true,
                 true,
                 |state, value: Size| {
                     state.location.size = value;
-
-                    let $var = state;
-                    $body
                 },
             );
 

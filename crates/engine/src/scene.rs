@@ -12,12 +12,14 @@ mod sprite;
 mod row;
 mod column;
 mod stack;
+mod wrap;
 
 pub use builder::{Node};
 pub use sprite::{Sprite, SpriteBuilder, Spritesheet, SpritesheetSettings, Tile};
 pub use row::{Row, RowBuilder};
 pub use column::{Column, ColumnBuilder};
 pub use stack::{Stack, StackBuilder};
+pub use wrap::{Wrap, WrapBuilder};
 
 
 /// f32 from 0.0 to 1.0
