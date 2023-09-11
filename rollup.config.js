@@ -9,7 +9,7 @@ const is_watch = !!process.env.ROLLUP_WATCH;
 
 export default {
     input: {
-        client: "./crates/client/Cargo.toml",
+        client: "./crates/client-web/Cargo.toml",
     },
     output: {
         dir: "dist/js",
