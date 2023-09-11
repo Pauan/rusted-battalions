@@ -1,4 +1,4 @@
-use rusted_battalions_game::{Game, GameSettings, Grid, UnitAppearance};
+use rusted_battalions_game_render::{Game, GameSettings, Grid, UnitAppearance};
 
 use dominator::{Dom, DomBuilder, clone, html, dom_builder, with_node, apply_methods, events};
 use dominator::animation::{timestamps};

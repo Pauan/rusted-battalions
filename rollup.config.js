@@ -26,7 +26,7 @@ export default {
 
         rust({
             serverPath: "js/",
-            watchPatterns: ["src/**", "../engine/**", "../game/**"],
+            watchPatterns: ["../**"],
 
             // Makes debug behave similarly to release, except with debug symbols
             //

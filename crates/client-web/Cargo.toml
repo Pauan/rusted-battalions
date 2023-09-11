@@ -24,8 +24,8 @@ features = [
     "HtmlCanvasElement",
 ]
 
-[dependencies.rusted-battalions-game]
-path = "../game"
+[dependencies.rusted-battalions-game-render]
+path = "../game-render"
 features = [
     "webgl",
 ]
