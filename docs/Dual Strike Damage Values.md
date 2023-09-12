@@ -1,6 +1,7 @@
 Data taken by testing the game with Andy as CO and zero terrain stars.
 
 ## Infantry
+```
 Infantry = 55%
 Mech = 45%
 Recon = 12%
@@ -26,8 +27,10 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+```
 
 ## Mech
+```
 Infantry = 65%
 Mech = 55%
 Recon = 85%
@@ -53,8 +56,10 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+```
 
 ## Recon
+```
 Infantry = 70%
 Mech = 65%
 Recon = 35%
@@ -80,8 +85,10 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+```
 
 ## Tank
+```
 Infantry = 75%
 Mech = 70%
 Recon = 85%
@@ -107,8 +114,10 @@ Lander = 10%
 Sub = 1%
 Black Boat = 10%
 Carrier = 1%
+```
 
 ## Md Tank
+```
 Infantry = 105%
 Mech = 95%
 Recon = 105%
@@ -134,8 +143,10 @@ Lander = 35%
 Sub = 10%
 Black Boat = 35%
 Carrier = 10%
+```
 
 ## Neotank
+```
 Infantry = 125%
 Mech = 115%
 Recon = 125%
@@ -161,8 +172,10 @@ Lander = 40%
 Sub = 15%
 Black Boat = 40%
 Carrier = 15%
+```
 
 ## Megatank
+```
 Infantry = 135%
 Mech = 125%
 Recon = 195%
@@ -188,8 +201,10 @@ Lander = 75%
 Sub = 45%
 Black Boat = 105%
 Carrier = 45%
+```
 
 ## Artillery
+```
 Infantry = 90%
 Mech = 85%
 Recon = 80%
@@ -215,8 +230,10 @@ Lander = 55%
 Sub = 60%
 Black Boat = 55%
 Carrier = 45%
+```
 
 ## Rockets
+```
 Infantry = 95%
 Mech = 90%
 Recon = 90%
@@ -242,8 +259,10 @@ Lander = 60%
 Sub = 85%
 Black Boat = 60%
 Carrier = 60%
+```
 
 ## Anti-Air
+```
 Infantry = 105%
 Mech = 105%
 Recon = 60%
@@ -269,8 +288,10 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+```
 
 ## Missiles
+```
 Infantry = 0%
 Mech = 0%
 Recon = 0%
@@ -296,8 +317,10 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+```
 
 ## Piperunner
+```
 Infantry = 95%
 Mech = 90%
 Recon = 90%
@@ -323,8 +346,10 @@ Lander = 60%
 Sub = 85%
 Black Boat = 60%
 Carrier = 60%
+```
 
 ## Fighter
+```
 Infantry = 0%
 Mech = 0%
 Recon = 0%
@@ -350,8 +375,10 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+```
 
 ## Bomber
+```
 Infantry = 110%
 Mech = 110%
 Recon = 105%
@@ -377,8 +404,10 @@ Lander = 95%
 Sub = 95%
 Black Boat = 95%
 Carrier = 75%
+```
 
 ## B Copter
+```
 Infantry = 75%
 Mech = 75%
 Recon = 55%
@@ -404,8 +433,10 @@ Lander = 25%
 Sub = 25%
 Black Boat = 25%
 Carrier = 25%
+```
 
 ## Stealth
+```
 Infantry = 90%
 Mech = 90%
 Recon = 85%
@@ -431,8 +462,10 @@ Lander = 65%
 Sub = 55%
 Black Boat = 65%
 Carrier = 45%
+```
 
 ## Battleship
+```
 Infantry = 95%
 Mech = 90%
 Recon = 90%
@@ -458,8 +491,10 @@ Lander = 95%
 Sub = 95%
 Black Boat = 95%
 Carrier = 60%
+```
 
 ## Cruiser
+```
 Infantry = 0%
 Mech = 0%
 Recon = 0%
@@ -485,8 +520,10 @@ Lander = 25%
 Sub = 90%
 Black Boat = 25%
 Carrier = 5%
+```
 
 ## Sub
+```
 Infantry = 0%
 Mech = 0%
 Recon = 0%
@@ -512,8 +549,10 @@ Lander = 95%
 Sub = 55%
 Black Boat = 95%
 Carrier = 75%
+```
 
 ## Carrier
+```
 Infantry = 0%
 Mech = 0%
 Recon = 0%
@@ -539,3 +578,4 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+```
