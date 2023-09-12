@@ -7,6 +7,7 @@ use crate::util::{Arc, Atomic, Lock};
 use crate::util::buffer::{Uniform, TextureBuffer, RgbaImage};
 use sprite::{SpriteRenderer, SpritePrerender};
 
+//mod border_grid;
 mod builder;
 mod sprite;
 mod row;
@@ -14,6 +15,7 @@ mod column;
 mod stack;
 mod wrap;
 
+//pub use border_grid::{BorderGrid, BorderGridBuilder, BorderSize, Quadrants};
 pub use builder::{Node};
 pub use sprite::{Sprite, SpriteBuilder, Spritesheet, SpritesheetSettings, Tile};
 pub use row::{Row, RowBuilder};
@@ -66,8 +68,8 @@ impl ScreenSpace {
                 self.position[1] + origin_y + pad_top + y,
             ],
             size: [
-                width - pad_left - pad_right,
-                height - pad_top - pad_bottom,
+                (width - pad_left - pad_right).max(0.0),
+                (height - pad_top - pad_bottom).max(0.0),
             ],
             z_index: self.z_index + location.z_index,
         }

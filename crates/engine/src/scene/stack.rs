@@ -69,7 +69,6 @@ impl NodeLayout for Stack {
         self.stretch
     }
 
-    #[inline]
     fn min_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> MinSize {
         if let Some(min_size) = self.min_size {
             min_size
