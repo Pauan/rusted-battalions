@@ -7,7 +7,7 @@ use crate::scene::{
 };
 
 
-/// Displays children in a column from top-to-bottom.
+/// Displays children in a column from up-to-down.
 ///
 /// # Layout
 ///

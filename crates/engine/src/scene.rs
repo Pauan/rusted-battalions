@@ -48,8 +48,8 @@ impl ScreenSpace {
 
     /// Calculates the new screen space position based on the Location.
     pub(crate) fn modify(&self, location: &Location, screen: &ScreenSize) -> Self {
-        let pad_top = location.padding.top.to_screen_space(self.size[1], screen.height);
-        let pad_bottom = location.padding.bottom.to_screen_space(self.size[1], screen.height);
+        let pad_up = location.padding.up.to_screen_space(self.size[1], screen.height);
+        let pad_down = location.padding.down.to_screen_space(self.size[1], screen.height);
         let pad_left = location.padding.left.to_screen_space(self.size[0], screen.width);
         let pad_right = location.padding.right.to_screen_space(self.size[0], screen.width);
 
@@ -65,11 +65,11 @@ impl ScreenSpace {
         Self {
             position: [
                 self.position[0] + origin_x + pad_left + x,
-                self.position[1] + origin_y + pad_top + y,
+                self.position[1] + origin_y + pad_up + y,
             ],
             size: [
                 (width - pad_left - pad_right).max(0.0),
-                (height - pad_top - pad_bottom).max(0.0),
+                (height - pad_up - pad_down).max(0.0),
             ],
             z_index: self.z_index + location.z_index,
         }
@@ -180,8 +180,8 @@ impl MinSize {
 /// The default is no padding.
 #[derive(Debug, Clone, Copy)]
 pub struct Padding {
-    pub top: Length,
-    pub bottom: Length,
+    pub up: Length,
+    pub down: Length,
     pub left: Length,
     pub right: Length,
 }
@@ -197,8 +197,8 @@ impl Padding {
             self.right.to_screen_space(parent_size.width, screen.width);
 
         let height =
-            self.top.to_screen_space(parent_size.height, screen.height) +
-            self.bottom.to_screen_space(parent_size.height, screen.height);
+            self.up.to_screen_space(parent_size.height, screen.height) +
+            self.down.to_screen_space(parent_size.height, screen.height);
 
         MinSize { width, height }
     }
@@ -207,8 +207,8 @@ impl Padding {
 impl Default for Padding {
     fn default() -> Self {
         Self {
-            top: Length::Parent(0.0),
-            bottom: Length::Parent(0.0),
+            up: Length::Parent(0.0),
+            down: Length::Parent(0.0),
             left: Length::Parent(0.0),
             right: Length::Parent(0.0),
         }

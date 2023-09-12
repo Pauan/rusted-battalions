@@ -203,7 +203,7 @@ impl NodeLayout for BorderGrid {
         let center = ScreenSpace {
             position: [
                 this_space.position[0] + size_left,
-                this_space.position[1] + size_top,
+                this_space.position[1] + size_up,
             ],
             size: [
                 (this_space.size[0] - size_left - size_right).max(0.0),

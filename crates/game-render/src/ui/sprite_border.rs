@@ -99,6 +99,7 @@ pub struct SpriteBorderBuilder {
     spritesheet: Option<Spritesheet>,
     border_size: Option<BorderSize>,
     quadrants: Option<Quadrants>,
+    center: Option<Node>,
     builder: engine::StackBuilder,
 }
 
@@ -130,10 +131,17 @@ impl SpriteBorderBuilder {
         self
     }
 
+    #[inline]
+    pub fn center(mut self, center: Node) -> Self {
+        self.center = Some(center);
+        self
+    }
+
     pub fn build(self) -> Node {
         let spritesheet = self.spritesheet.expect("Missing spritesheet");
         let border_size = self.border_size.expect("Missing border_size");
         let quadrants = self.quadrants.expect("Missing quadrants");
+        let center = self.center.expect("Missing center");
 
         self.builder.children([
             engine::Sprite::builder()
@@ -188,21 +196,28 @@ impl SpriteBorderBuilder {
                     y: 0.5,
                 })
                 .padding(Padding {
-                    top: border_size.up,
-                    bottom: border_size.down,
+                    up: border_size.up,
+                    down: border_size.down,
                     ..Padding::default()
                 })
                 .build(),
 
-            engine::Sprite::builder()
-                .spritesheet(spritesheet.clone())
-                .tile(quadrants.center)
+            engine::Stack::builder()
+                .origin(Origin {
+                    x: 0.5,
+                    y: 0.5,
+                })
                 .padding(Padding {
-                    top: border_size.up,
-                    bottom: border_size.down,
+                    up: border_size.up,
+                    down: border_size.down,
                     left: border_size.left,
                     right: border_size.right,
                 })
+                .child(engine::Sprite::builder()
+                    .spritesheet(spritesheet.clone())
+                    .tile(quadrants.center)
+                    .build())
+                .child(center)
                 .build(),
 
             engine::Sprite::builder()
@@ -217,8 +232,8 @@ impl SpriteBorderBuilder {
                     y: 0.5,
                 })
                 .padding(Padding {
-                    top: border_size.up,
-                    bottom: border_size.down,
+                    up: border_size.up,
+                    down: border_size.down,
                     ..Padding::default()
                 })
                 .build(),
@@ -281,6 +296,7 @@ impl SpriteBorder {
             spritesheet: None,
             border_size: None,
             quadrants: None,
+            center: None,
             builder: engine::Stack::builder(),
         }
     }
