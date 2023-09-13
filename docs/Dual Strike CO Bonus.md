@@ -197,3 +197,141 @@ Rockets = 51%
 Anti-Air = 39%
 Missiles = 51%
 ```
+
+
+# Andy Tank (0 comtower + CO power) attacking Kanbei
+
+## 0 Star
+```
+Tank = 48%
+```
+
+## 1 Star
+```
+Tank = 42%
+```
+
+## 2 Star
+```
+Tank = 36%
+```
+
+## 3 Star
+```
+Tank = 30%
+```
+
+
+# Max Tank (0 comtower + CO power) attacking Kanbei
+
+## 0 Star
+```
+Tank = 70%
+```
+
+## 1 Star
+```
+Tank = 61%
+```
+
+## 2 Star
+```
+Tank = 52%
+```
+
+## 3 Star
+```
+Tank = 44%
+```
+
+
+# Max Tank (1 comtower) attacking Kanbei
+
+## 0 Star
+```
+Tank = 56%
+```
+
+## 1 Star
+```
+Tank = 49%
+```
+
+## 2 Star
+```
+Tank = 42%
+```
+
+## 3 Star
+```
+Tank = 35%
+```
+
+
+# Max Tank (2 comtower) attacking Kanbei
+
+## 0 Star
+```
+Tank = 61%
+```
+
+## 1 Star
+```
+Tank = 53%
+```
+
+## 2 Star
+```
+Tank = 46%
+```
+
+## 3 Star
+```
+Tank = 38%
+```
+
+
+# Max Tank (3 comtower) attacking Kanbei
+
+## 0 Star
+```
+Tank = 65%
+```
+
+## 1 Star
+```
+Tank = 57%
+```
+
+## 2 Star
+```
+Tank = 49%
+```
+
+## 3 Star
+```
+Tank = 41%
+```
+
+
+# Max Tank (3 comtower + CO power) attacking Kanbei
+
+## 0 Star
+```
+Tank = 83%
+```
+
+## 1 Star
+```
+Tank = 72%
+```
+
+## 2 Star
+```
+Tank = 62%
+```
+
+## 3 Star
+```
+Tank = 52%
+```
