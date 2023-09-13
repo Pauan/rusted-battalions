@@ -49,13 +49,30 @@ impl Tile {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
 #[layout(Instance)]
-struct GPUSprite {
-    position: [f32; 2],
-    size: [f32; 2],
-    z_index: f32,
-    tile: [u32; 4],
-    palette: u32,
+pub(crate) struct GPUSprite {
+    pub(crate) position: [f32; 2],
+    pub(crate) size: [f32; 2],
+    pub(crate) z_index: f32,
+    pub(crate) tile: [u32; 4],
+    pub(crate) palette: u32,
 }
+
+impl GPUSprite {
+    pub(crate) fn update(&mut self, space: &ScreenSpace) {
+        self.position = [
+            space.position[0],
+
+            // The origin point of our sprites is in the upper-left corner,
+            // but with wgpu the origin point is in the lower-left corner.
+            // So we shift the y position into the lower-left corner of the sprite.
+            space.position[1] - space.size[1],
+        ];
+
+        self.size = space.size;
+        self.z_index = space.z_index;
+    }
+}
+
 
 pub struct Sprite {
     /// Whether any of the properties changed which require a re-render.
@@ -96,16 +113,9 @@ impl Sprite {
     fn update_gpu(&mut self, screen_size: &ScreenSize) {
         let parent = self.parent_space.as_ref().unwrap();
 
-        let mut space = parent.modify(&self.location, &screen_size).convert_to_wgpu_coordinates();
+        let space = parent.modify(&self.location, &screen_size).convert_to_wgpu_coordinates();
 
-        // The origin point of our sprites is in the upper-left corner,
-        // but with wgpu the origin point is in the lower-left corner.
-        // So we shift the y position into the lower-left corner of the sprite.
-        space.position[1] -= space.size[1];
-
-        self.gpu.position = space.position;
-        self.gpu.size = space.size;
-        self.gpu.z_index = space.z_index;
+        self.gpu.update(&space);
     }
 }
 
@@ -315,7 +325,7 @@ impl SpriteRenderer {
             scene_uniform_layout,
 
             // TODO lazy load this ?
-            wgpu::include_wgsl!("sprite.wgsl"),
+            wgpu::include_wgsl!("../wgsl/sprite.wgsl"),
 
             builders::BindGroupLayout::builder()
                 .label("Sprite")
@@ -328,7 +338,7 @@ impl SpriteRenderer {
             scene_uniform_layout,
 
             // TODO lazy load this ?
-            wgpu::include_wgsl!("sprite_palette.wgsl"),
+            wgpu::include_wgsl!("../wgsl/sprite_palette.wgsl"),
 
             builders::BindGroupLayout::builder()
                 .label("Sprite")
@@ -342,7 +352,7 @@ impl SpriteRenderer {
             scene_uniform_layout,
 
             // TODO lazy load this ?
-            wgpu::include_wgsl!("sprite_grayscale.wgsl"),
+            wgpu::include_wgsl!("../wgsl/sprite_grayscale.wgsl"),
 
             builders::BindGroupLayout::builder()
                 .label("Sprite")
