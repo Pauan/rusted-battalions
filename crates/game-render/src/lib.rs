@@ -11,11 +11,12 @@ use dominator::clone;
 use rusted_battalions_engine as engine;
 use rusted_battalions_engine::{
     Engine, EngineSettings, Spritesheet, SpritesheetSettings, RgbaImage,
-    Texture, Node, TextureFormat,
+    GrayscaleImage, IndexedImage, Texture, Node,
 };
 
 use crate::util::future::executor;
 use grid::{ScreenSize};
+use ui::text::BitmapText;
 
 pub use grid::{Grid};
 
@@ -63,6 +64,31 @@ impl Spritesheets {
 }
 
 
+struct Fonts {
+    aw_big: BitmapText,
+    unison: BitmapText,
+}
+
+impl Fonts {
+    fn new() -> Self {
+        Self {
+            aw_big: BitmapText {
+                spritesheet: Spritesheet::new(),
+                columns: 32,
+                tile_width: 16,
+                tile_height: 32,
+            },
+            unison: BitmapText {
+                spritesheet: Spritesheet::new(),
+                columns: 64,
+                tile_width: 8,
+                tile_height: 16,
+            },
+        }
+    }
+}
+
+
 pub struct GameSettings {
     pub appearance: UnitAppearance,
     pub grid: Arc<Grid>,
@@ -73,6 +99,7 @@ pub struct Game {
     pub unit_appearance: Mutable<UnitAppearance>,
 
     spritesheets: Spritesheets,
+    fonts: Fonts,
 
     grid: Mutable<Arc<Grid>>,
 }
@@ -83,6 +110,7 @@ impl Game {
             unit_appearance: Mutable::new(settings.appearance),
 
             spritesheets: Spritesheets::new(),
+            fonts: Fonts::new(),
 
             grid: Mutable::new(settings.grid),
         })
@@ -113,6 +141,59 @@ impl Game {
             .child_signal(this.grid.signal_ref(clone!(this => move |grid| {
                 Some(Grid::render(&this, grid))
             })))
+
+            .child(engine::Wrap::builder()
+                .z_index(9000.0)
+
+                .size(engine::Size {
+                    width: engine::Length::Screen(0.39),
+                    height: engine::Length::Parent(1.0),
+                })
+
+                .children(" '-.".chars().map(|c| {
+                    this.fonts.unison.sprite(c).size(engine::Size {
+                        width: engine::Length::Px(32),
+                        height: engine::Length::Px(64),
+                    }).build()
+                }))
+
+                .children("ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().map(|c| {
+                    this.fonts.unison.sprite(c).size(engine::Size {
+                        width: engine::Length::Px(32),
+                        height: engine::Length::Px(64),
+                    }).build()
+                }))
+
+                .children("abcdefghijklmnopqrstuvwxyz".chars().map(|c| {
+                    this.fonts.unison.sprite(c).size(engine::Size {
+                        width: engine::Length::Px(32),
+                        height: engine::Length::Px(64),
+                    }).build()
+                }))
+
+                .children("ÆÖÜß".chars().map(|c| {
+                    this.fonts.unison.sprite(c).size(engine::Size {
+                        width: engine::Length::Px(32),
+                        height: engine::Length::Px(64),
+                    }).build()
+                }))
+
+                .children("àáäæèéêíïñóùü".chars().map(|c| {
+                    this.fonts.unison.sprite(c).size(engine::Size {
+                        width: engine::Length::Px(32),
+                        height: engine::Length::Px(64),
+                    }).build()
+                }))
+
+                .children(this.fonts.unison.sprites("\nHello there handsome.\nHow's it going.").map(|sprite| {
+                    sprite.size(engine::Size {
+                        width: engine::Length::Px(32),
+                        height: engine::Length::Px(64),
+                    }).build()
+                }))
+
+                .build())
+
             .build()
     }
 
@@ -132,37 +213,40 @@ impl Game {
         }).await;
 
         // TODO preprocess the images ?
-        fn palettize_spritesheet(palette: &RgbaImage, label: &'static str, bytes: &[u8]) -> RgbaImage {
-            let mut spritesheet = RgbaImage::new(label, bytes);
-
-            let default_palette = palette.bytes.rows()
+        fn palettize_spritesheet(palette: &RgbaImage, label: &'static str, bytes: &[u8]) -> IndexedImage {
+            let default_palette = palette.image.rows()
                 .take(1)
                 .flatten()
                 .collect::<Vec<&image::Rgba<u8>>>();
 
-            fn get_color(default_palette: &[&image::Rgba<u8>], pixel: &image::Rgba<u8>) -> image::Rgba<u8> {
-                for (index, color) in default_palette.into_iter().enumerate() {
-                    if pixel == *color {
-                        return image::Rgba([index as u8, 0, 0, 255]);
+            let spritesheet = RgbaImage::from_bytes(label, bytes);
+
+            let (width, height) = spritesheet.image.dimensions();
+
+            IndexedImage::from_fn(label, width, height, |x, y| {
+                let pixel = spritesheet.image.get_pixel(x, y);
+
+                let alpha = pixel[3];
+
+                if alpha > 0 {
+                    for (index, color) in default_palette.iter().enumerate() {
+                        if pixel == *color {
+                            return image::LumaA([index as u8, alpha]);
+                        }
                     }
+
+                    panic!("Color not found in palette: {:?}", pixel);
+
+                } else {
+                    image::LumaA([0, 0])
                 }
-
-                panic!("Color not found in palette: {:?}", pixel);
-            }
-
-            for pixel in spritesheet.bytes.pixels_mut() {
-                if pixel[3] > 0 {
-                    *pixel = get_color(&default_palette, pixel);
-                }
-            }
-
-            spritesheet
+            })
         }
 
         {
-            let effect = RgbaImage::new("effect", include_bytes!("../../../dist/sprites/effect.png"));
+            let effect = RgbaImage::from_bytes("effect", include_bytes!("../../../dist/sprites/effect.png"));
 
-            let texture = Texture::new_load(&mut engine, &effect, TextureFormat::Rgba8UnormSrgb);
+            let texture = Texture::new_load(&mut engine, &effect);
 
             self.spritesheets.effect.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
@@ -171,7 +255,7 @@ impl Game {
         }
 
         {
-            let unit_palette = RgbaImage::new(
+            let unit_palette = RgbaImage::from_bytes(
                 "units_palette",
                 include_bytes!("../../../dist/sprites/units_palette.png"),
             );
@@ -188,16 +272,16 @@ impl Game {
                 include_bytes!("../../../dist/sprites/units_big.png"),
             );
 
-            let palette_texture = Texture::new_load(&mut engine, &unit_palette, TextureFormat::Rgba8UnormSrgb);
+            let palette_texture = Texture::new_load(&mut engine, &unit_palette);
 
-            let texture = Texture::new_load(&mut engine, &unit_small, TextureFormat::Rgba8Uint);
+            let texture = Texture::new_load(&mut engine, &unit_small);
 
             self.spritesheets.unit_small.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
                 palette: Some(&palette_texture),
             });
 
-            let texture = Texture::new_load(&mut engine, &unit_big, TextureFormat::Rgba8Uint);
+            let texture = Texture::new_load(&mut engine, &unit_big);
 
             self.spritesheets.unit_big.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
@@ -206,7 +290,7 @@ impl Game {
         }
 
         {
-            let buildings_palette = RgbaImage::new(
+            let buildings_palette = RgbaImage::from_bytes(
                 "buildings_palette",
                 include_bytes!("../../../dist/sprites/buildings_palette.png"),
             );
@@ -217,8 +301,8 @@ impl Game {
                 include_bytes!("../../../dist/sprites/buildings_small.png"),
             );
 
-            let texture = Texture::new_load(&mut engine, &buildings_small, TextureFormat::Rgba8Uint);
-            let palette = Texture::new_load(&mut engine, &buildings_palette, TextureFormat::Rgba8UnormSrgb);
+            let texture = Texture::new_load(&mut engine, &buildings_small);
+            let palette = Texture::new_load(&mut engine, &buildings_palette);
 
             self.spritesheets.building.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
@@ -227,7 +311,7 @@ impl Game {
         }
 
         {
-            let terrain_palette = RgbaImage::new(
+            let terrain_palette = RgbaImage::from_bytes(
                 "terrain_palette",
                 include_bytes!("../../../dist/sprites/terrain_palette.png"),
             );
@@ -238,12 +322,40 @@ impl Game {
                 include_bytes!("../../../dist/sprites/terrain_small.png"),
             );
 
-            let texture = Texture::new_load(&mut engine, &terrain_small, TextureFormat::Rgba8Uint);
-            let palette = Texture::new_load(&mut engine, &terrain_palette, TextureFormat::Rgba8UnormSrgb);
+            let texture = Texture::new_load(&mut engine, &terrain_small);
+            let palette = Texture::new_load(&mut engine, &terrain_palette);
 
             self.spritesheets.terrain.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
                 palette: Some(&palette),
+            });
+        }
+
+        {
+            let aw_font = RgbaImage::from_bytes(
+                "aw_font",
+                include_bytes!("../../../dist/sprites/text.png"),
+            );
+
+            let texture = Texture::new_load(&mut engine, &aw_font);
+
+            self.fonts.aw_big.spritesheet.load(&mut engine, SpritesheetSettings {
+                texture: &texture,
+                palette: None,
+            });
+        }
+
+        {
+            let unison_font = GrayscaleImage::from_bytes(
+                "unison_font",
+                include_bytes!("../../../dist/fonts/unison.png"),
+            );
+
+            let texture = Texture::new_load(&mut engine, &unison_font);
+
+            self.fonts.unison.spritesheet.load(&mut engine, SpritesheetSettings {
+                texture: &texture,
+                palette: None,
             });
         }
 

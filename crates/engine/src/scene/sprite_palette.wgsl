@@ -56,7 +56,7 @@ fn vs_main(
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let index: vec4<u32> = textureLoad(spritesheet, vec2(u32(in.uv.x), u32(in.uv.y)), 0);
 
-    if index.a == 0u {
+    if index.g == 0u {
         discard;
 
     } else {

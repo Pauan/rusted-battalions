@@ -1,9 +1,21 @@
 use wgpu;
 use wgpu::util::DeviceExt;
 use image;
-use image::GenericImageView;
 use std::ops::{Deref, DerefMut};
 use std::marker::PhantomData;
+
+
+pub trait IntoTexture {
+    type Item;
+
+    fn label(&self) -> &'static str;
+
+    fn dimensions(&self) -> (u32, u32);
+
+    fn format(&self) -> wgpu::TextureFormat;
+
+    fn bytes(&self) -> &[u8];
+}
 
 
 pub(crate) struct TextureBuffer {
@@ -11,48 +23,25 @@ pub(crate) struct TextureBuffer {
     pub(crate) view: wgpu::TextureView,
 }
 
-impl Drop for TextureBuffer {
-    fn drop(&mut self) {
-        self.texture.destroy();
-    }
-}
+impl TextureBuffer {
+    pub(crate) fn new<T>(engine: &crate::EngineState, image: &T) -> Self where T: IntoTexture {
+        let label = image.label();
 
+        let (width, height) = image.dimensions();
 
-pub struct RgbaImage {
-    label: &'static str,
-    pub bytes: image::RgbaImage,
-    width: u32,
-    height: u32,
-}
-
-impl RgbaImage {
-    pub fn new(label: &'static str, bytes: &[u8]) -> Self {
-        let image = image::load_from_memory(bytes).unwrap();
-
-        let dimensions = image.dimensions();
-
-        Self {
-            label,
-            bytes: image.into_rgba8(),
-            width: dimensions.0,
-            height: dimensions.1,
-        }
-    }
-
-    pub(crate) fn to_buffer(&self, engine: &crate::EngineState, format: wgpu::TextureFormat) -> TextureBuffer {
         let size = wgpu::Extent3d {
-            width: self.width,
-            height: self.height,
+            width,
+            height,
             depth_or_array_layers: 1,
         };
 
         let texture = engine.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some(&self.label),
+            label: Some(&label),
             size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format,
+            format: image.format(),
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
@@ -64,17 +53,17 @@ impl RgbaImage {
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
-            &self.bytes,
+            image.bytes(),
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(self.width * (std::mem::size_of::<image::Rgba<u8>>() as u32)),
-                rows_per_image: Some(self.height),
+                bytes_per_row: Some(width * (std::mem::size_of::<T::Item>() as u32)),
+                rows_per_image: Some(height),
             },
             size,
         );
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor {
-            label: Some(&self.label),
+            label: Some(&label),
             format: None,
             dimension: None,
             aspect: wgpu::TextureAspect::All,
@@ -84,10 +73,157 @@ impl RgbaImage {
             array_layer_count: None,
         });
 
-        TextureBuffer {
-            texture,
-            view,
-        }
+        Self { texture, view }
+    }
+}
+
+impl Drop for TextureBuffer {
+    fn drop(&mut self) {
+        self.texture.destroy();
+    }
+}
+
+
+pub struct RgbaImage {
+    label: &'static str,
+    pub image: image::RgbaImage,
+}
+
+impl RgbaImage {
+    pub(crate) const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
+
+    pub fn from_fn<F>(label: &'static str, width: u32, height: u32, f: F) -> Self
+        where F: FnMut(u32, u32) -> image::Rgba<u8> {
+
+        let image = image::RgbaImage::from_fn(width, height, f);
+
+        Self { label, image }
+    }
+
+    pub fn from_bytes(label: &'static str, bytes: &[u8]) -> Self {
+        let image = image::load_from_memory(bytes).unwrap().into_rgba8();
+
+        Self { label, image }
+    }
+}
+
+impl IntoTexture for RgbaImage {
+    type Item = image::Rgba<u8>;
+
+    #[inline]
+    fn label(&self) -> &'static str {
+        &self.label
+    }
+
+    #[inline]
+    fn format(&self) -> wgpu::TextureFormat {
+        Self::FORMAT
+    }
+
+    #[inline]
+    fn dimensions(&self) -> (u32, u32) {
+        self.image.dimensions()
+    }
+
+    #[inline]
+    fn bytes(&self) -> &[u8] {
+        &self.image
+    }
+}
+
+
+pub struct IndexedImage {
+    label: &'static str,
+    pub image: image::GrayAlphaImage,
+}
+
+impl IndexedImage {
+    pub(crate) const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rg8Uint;
+
+    pub fn from_fn<F>(label: &'static str, width: u32, height: u32, f: F) -> Self
+        where F: FnMut(u32, u32) -> image::LumaA<u8> {
+
+        let image = image::GrayAlphaImage::from_fn(width, height, f);
+
+        Self { label, image }
+    }
+
+    pub fn from_bytes(label: &'static str, bytes: &[u8]) -> Self {
+        let image = image::load_from_memory(bytes).unwrap().into_luma_alpha8();
+
+        Self { label, image }
+    }
+}
+
+impl IntoTexture for IndexedImage {
+    type Item = image::LumaA<u8>;
+
+    #[inline]
+    fn label(&self) -> &'static str {
+        &self.label
+    }
+
+    #[inline]
+    fn format(&self) -> wgpu::TextureFormat {
+        Self::FORMAT
+    }
+
+    #[inline]
+    fn dimensions(&self) -> (u32, u32) {
+        self.image.dimensions()
+    }
+
+    #[inline]
+    fn bytes(&self) -> &[u8] {
+        &self.image
+    }
+}
+
+
+pub struct GrayscaleImage {
+    label: &'static str,
+    pub image: image::GrayImage,
+}
+
+impl GrayscaleImage {
+    pub(crate) const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::R8Uint;
+
+    pub fn from_fn<F>(label: &'static str, width: u32, height: u32, f: F) -> Self
+        where F: FnMut(u32, u32) -> image::Luma<u8> {
+
+        let image = image::GrayImage::from_fn(width, height, f);
+
+        Self { label, image }
+    }
+
+    pub fn from_bytes(label: &'static str, bytes: &[u8]) -> Self {
+        let image = image::load_from_memory(bytes).unwrap().into_luma8();
+
+        Self { label, image }
+    }
+}
+
+impl IntoTexture for GrayscaleImage {
+    type Item = image::Luma<u8>;
+
+    #[inline]
+    fn label(&self) -> &'static str {
+        &self.label
+    }
+
+    #[inline]
+    fn format(&self) -> wgpu::TextureFormat {
+        Self::FORMAT
+    }
+
+    #[inline]
+    fn dimensions(&self) -> (u32, u32) {
+        self.image.dimensions()
+    }
+
+    #[inline]
+    fn bytes(&self) -> &[u8] {
+        &self.image
     }
 }
 

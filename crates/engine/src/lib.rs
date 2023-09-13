@@ -11,9 +11,8 @@ mod util;
 mod postprocess;
 mod scene;
 
-pub use util::buffer::{RgbaImage};
+pub use util::buffer::{RgbaImage, IndexedImage, GrayscaleImage};
 pub use scene::*;
-pub use wgpu::TextureFormat;
 
 
 const HAS_STENCIL: bool = false;

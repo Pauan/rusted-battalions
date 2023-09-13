@@ -70,7 +70,8 @@ struct Defender {
 
 impl Defender {
     fn defense(&self) -> f64 {
-        // 10% defense bonus per terrain star, but scaled by HP
+        // 10% defense bonus per terrain star, but scaled by HP.
+        // Terrain bonus is doubled during Lash's SCOP but it still scales with HP.
         let terrain_defense = self.hp.ceil() * (self.terrain_stars * 0.1);
 
         // 10% defense bonus per comtower but only for Javier

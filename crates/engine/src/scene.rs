@@ -4,7 +4,7 @@ use std::pin::Pin;
 
 use crate::Spawner;
 use crate::util::{Arc, Atomic, Lock};
-use crate::util::buffer::{Uniform, TextureBuffer, RgbaImage};
+use crate::util::buffer::{Uniform, TextureBuffer, IntoTexture};
 use sprite::{SpriteRenderer, SpritePrerender};
 
 //mod border_grid;
@@ -544,15 +544,15 @@ impl Texture {
     }
 
     #[inline]
-    pub fn new_load<Window>(engine: &mut crate::Engine<Window>, image: &RgbaImage, format: wgpu::TextureFormat) -> Self {
+    pub fn new_load<Window, T>(engine: &mut crate::Engine<Window>, image: &T) -> Self where T: IntoTexture {
         let x = Self::new();
-        x.load(engine, image, format);
+        x.load(engine, image);
         x
     }
 
     #[inline]
-    pub fn load<Window>(&self, engine: &mut crate::Engine<Window>, image: &RgbaImage, format: wgpu::TextureFormat) {
-        let buffer = image.to_buffer(&engine.state, format);
+    pub fn load<Window, T>(&self, engine: &mut crate::Engine<Window>, image: &T) where T: IntoTexture {
+        let buffer = TextureBuffer::new(&engine.state, image);
 
         engine.scene.textures.insert(&self.handle, buffer);
 

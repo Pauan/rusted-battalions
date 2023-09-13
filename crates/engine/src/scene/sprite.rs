@@ -3,7 +3,10 @@ use bytemuck::{Pod, Zeroable};
 use futures_signals::signal::{Signal, SignalExt};
 
 use crate::util::builders;
-use crate::util::buffer::{Uniform, TextureBuffer, InstanceVec, InstanceVecOptions};
+use crate::util::buffer::{
+    Uniform, TextureBuffer, InstanceVec, InstanceVecOptions,
+    RgbaImage, GrayscaleImage, IndexedImage,
+};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method};
 use crate::scene::{
     Handle, Handles, Texture, MinSize, Location, Padding, Origin, Offset, Size, ScreenSize,
@@ -250,15 +253,55 @@ struct SpritesheetPipeline {
     pipeline: wgpu::RenderPipeline,
 }
 
+impl SpritesheetPipeline {
+    fn new<'a>(
+        engine: &crate::EngineState,
+        scene_uniform_layout: &wgpu::BindGroupLayout,
+        shader: wgpu::ShaderModuleDescriptor<'a>,
+        bind_group_layout: wgpu::BindGroupLayout
+    ) -> Self {
+        let stencil = wgpu::StencilFaceState {
+            compare: wgpu::CompareFunction::GreaterEqual,
+            fail_op: wgpu::StencilOperation::Keep,
+            depth_fail_op: wgpu::StencilOperation::Keep,
+            pass_op: wgpu::StencilOperation::Replace,
+        };
+
+        let pipeline = builders::Pipeline::builder()
+            .label("Sprite")
+            // TODO lazy load this ?
+            .shader(shader)
+            .bind_groups(&[
+                scene_uniform_layout,
+                &bind_group_layout,
+            ])
+            .vertex_buffers(&[GPUSprite::LAYOUT])
+            .topology(wgpu::PrimitiveTopology::TriangleStrip)
+            .strip_index_format(wgpu::IndexFormat::Uint32)
+            .depth_stencil(wgpu::StencilState {
+                front: stencil,
+                back: stencil,
+                read_mask: 0xFF,
+                write_mask: 0xFF,
+            })
+            .build(engine);
+
+        Self { bind_group_layout, pipeline }
+    }
+}
+
+
 struct SpritesheetState {
     instances: InstanceVec<GPUSprite>,
     bind_group: wgpu::BindGroup,
     has_palette: bool,
+    is_grayscale: bool,
 }
 
 pub(crate) struct SpriteRenderer {
     normal: SpritesheetPipeline,
     palette: SpritesheetPipeline,
+    grayscale: SpritesheetPipeline,
     spritesheets: Handles<SpritesheetState>,
 }
 
@@ -267,79 +310,61 @@ impl SpriteRenderer {
     pub(crate) fn new(engine: &crate::EngineState, scene_uniform: &mut Uniform<SceneUniform>) -> Self {
         let scene_uniform_layout = Uniform::bind_group_layout(scene_uniform, engine);
 
-        let stencil = wgpu::StencilFaceState {
-            compare: wgpu::CompareFunction::GreaterEqual,
-            fail_op: wgpu::StencilOperation::Keep,
-            depth_fail_op: wgpu::StencilOperation::Keep,
-            pass_op: wgpu::StencilOperation::Replace,
-        };
+        let normal = SpritesheetPipeline::new(
+            engine,
+            scene_uniform_layout,
 
-        let normal = {
-            let bind_group_layout = builders::BindGroupLayout::builder()
+            // TODO lazy load this ?
+            wgpu::include_wgsl!("sprite.wgsl"),
+
+            builders::BindGroupLayout::builder()
                 .label("Sprite")
                 .texture(wgpu::ShaderStages::FRAGMENT, wgpu::TextureSampleType::Float { filterable: false })
-                .build(engine);
+                .build(engine),
+        );
 
-            let pipeline = builders::Pipeline::builder()
-                .label("Sprite")
-                // TODO lazy load this ?
-                .shader(wgpu::include_wgsl!("sprite.wgsl"))
-                .bind_groups(&[
-                    scene_uniform_layout,
-                    &bind_group_layout,
-                ])
-                .vertex_buffers(&[GPUSprite::LAYOUT])
-                .topology(wgpu::PrimitiveTopology::TriangleStrip)
-                .strip_index_format(wgpu::IndexFormat::Uint32)
-                .depth_stencil(wgpu::StencilState {
-                    front: stencil,
-                    back: stencil,
-                    read_mask: 0xFF,
-                    write_mask: 0xFF,
-                })
-                .build(engine);
+        let palette = SpritesheetPipeline::new(
+            engine,
+            scene_uniform_layout,
 
-            SpritesheetPipeline { bind_group_layout, pipeline }
-        };
+            // TODO lazy load this ?
+            wgpu::include_wgsl!("sprite_palette.wgsl"),
 
-        let palette = {
-            let bind_group_layout = builders::BindGroupLayout::builder()
+            builders::BindGroupLayout::builder()
                 .label("Sprite")
                 .texture(wgpu::ShaderStages::FRAGMENT, wgpu::TextureSampleType::Uint)
                 .texture(wgpu::ShaderStages::FRAGMENT, wgpu::TextureSampleType::Float { filterable: false })
-                .build(engine);
+                .build(engine),
+        );
 
-            let pipeline = builders::Pipeline::builder()
+        let grayscale = SpritesheetPipeline::new(
+            engine,
+            scene_uniform_layout,
+
+            // TODO lazy load this ?
+            wgpu::include_wgsl!("sprite_grayscale.wgsl"),
+
+            builders::BindGroupLayout::builder()
                 .label("Sprite")
-                // TODO lazy load this ?
-                .shader(wgpu::include_wgsl!("sprite_palette.wgsl"))
-                .bind_groups(&[
-                    scene_uniform_layout,
-                    &bind_group_layout,
-                ])
-                .vertex_buffers(&[GPUSprite::LAYOUT])
-                .topology(wgpu::PrimitiveTopology::TriangleStrip)
-                .strip_index_format(wgpu::IndexFormat::Uint32)
-                .depth_stencil(wgpu::StencilState {
-                    front: stencil,
-                    back: stencil,
-                    read_mask: 0xFF,
-                    write_mask: 0xFF,
-                })
-                .build(engine);
-
-            SpritesheetPipeline { bind_group_layout, pipeline }
-        };
+                .texture(wgpu::ShaderStages::FRAGMENT, wgpu::TextureSampleType::Uint)
+                .build(engine),
+        );
 
         Self {
             normal,
             palette,
+            grayscale,
             spritesheets: Handles::new(),
         }
     }
 
     fn spritesheet_state(&self, engine: &crate::EngineState, texture: &TextureBuffer, palette: Option<&TextureBuffer>) -> SpritesheetState {
+        let is_grayscale = texture.texture.format() == GrayscaleImage::FORMAT;
+
         let bind_group = if let Some(palette) = palette {
+            assert_eq!(texture.texture.format(), IndexedImage::FORMAT, "texture must be an IndexedImage");
+            assert_eq!(palette.texture.format(), RgbaImage::FORMAT, "palette must be an RgbaImage");
+
             builders::BindGroup::builder()
                 .label("Spritesheet")
                 .layout(&self.palette.bind_group_layout)
@@ -347,7 +372,16 @@ impl SpriteRenderer {
                 .texture_view(&palette.view)
                 .build(engine)
 
+        } else if is_grayscale {
+            builders::BindGroup::builder()
+                .label("Spritesheet")
+                .layout(&self.grayscale.bind_group_layout)
+                .texture_view(&texture.view)
+                .build(engine)
+
         } else {
+            assert_eq!(texture.texture.format(), RgbaImage::FORMAT, "texture must be an RgbaImage");
+
             builders::BindGroup::builder()
                 .label("Spritesheet")
                 .layout(&self.normal.bind_group_layout)
@@ -359,6 +393,7 @@ impl SpriteRenderer {
             instances: InstanceVec::new(),
             bind_group,
             has_palette: palette.is_some(),
+            is_grayscale,
         }
     }
 
@@ -385,6 +420,9 @@ impl SpriteRenderer {
 
                     let pipeline = if sheet.has_palette {
                         &self.palette.pipeline
+
+                    } else if sheet.is_grayscale {
+                        &self.grayscale.pipeline
 
                     } else {
                         &self.normal.pipeline
