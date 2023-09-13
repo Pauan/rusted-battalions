@@ -54,7 +54,6 @@ pub(crate) struct GPUSprite {
     pub(crate) size: [f32; 2],
     pub(crate) z_index: f32,
     pub(crate) tile: [u32; 4],
-    pub(crate) palette: u32,
 }
 
 impl GPUSprite {
@@ -74,6 +73,27 @@ impl GPUSprite {
 }
 
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable, Default, PartialEq)]
+pub(crate) struct Palette {
+    pub(crate) palette: u32,
+}
+
+impl Palette {
+    const LAYOUT: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
+        array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+        step_mode: wgpu::VertexStepMode::Instance,
+        attributes: &[
+            wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Uint32,
+                offset: 0,
+                shader_location: 4,
+            },
+        ],
+    };
+}
+
+
 pub struct Sprite {
     /// Whether any of the properties changed which require a re-render.
     render_changed: bool,
@@ -90,6 +110,8 @@ pub struct Sprite {
 
     gpu: GPUSprite,
     gpu_index: usize,
+
+    palette: Palette,
 }
 
 impl Sprite {
@@ -107,6 +129,10 @@ impl Sprite {
 
             gpu: GPUSprite::default(),
             gpu_index: 0,
+
+            palette: Palette {
+                palette: 0,
+            },
         }
     }
 
@@ -158,7 +184,7 @@ impl SpriteBuilder {
         false,
         true,
         |state, value: u32| {
-            state.gpu.palette = value;
+            state.palette.palette = value;
             state.render_changed = true;
         },
     );
@@ -193,8 +219,12 @@ impl NodeLayout for Sprite {
         let spritesheet = self.spritesheet.as_ref().expect("Sprite is missing spritesheet");
 
         if let Some(spritesheet) = info.renderer.sprite.spritesheets.get_mut(&spritesheet.handle) {
-            self.gpu_index = spritesheet.instances.len();
-            spritesheet.instances.push(self.gpu);
+            self.gpu_index = spritesheet.locations.len();
+            spritesheet.locations.push(self.gpu);
+
+            if let Some(palettes) = &mut spritesheet.palettes {
+                palettes.push(self.palette);
+            }
         }
 
         info.rendered_nodes.push(handle.clone());
@@ -215,7 +245,11 @@ impl NodeLayout for Sprite {
             let spritesheet = self.spritesheet.as_ref().expect("Sprite is missing spritesheet");
 
             if let Some(spritesheet) = info.renderer.sprite.spritesheets.get_mut(&spritesheet.handle) {
-                spritesheet.instances[self.gpu_index] = self.gpu;
+                spritesheet.locations[self.gpu_index] = self.gpu;
+
+                if let Some(palettes) = &mut spritesheet.palettes {
+                    palettes[self.gpu_index] = self.palette;
+                }
             }
         }
 
@@ -226,19 +260,32 @@ impl NodeLayout for Sprite {
 
 struct SpritesheetPrerender<'a> {
     pipeline: &'a wgpu::RenderPipeline,
-    scene_uniform: &'a wgpu::BindGroup,
-    bind_group: &'a wgpu::BindGroup,
-    slice: Option<wgpu::BufferSlice<'a>>,
+    // TODO figure out a way to avoid the Vec
+    bind_groups: Vec<&'a wgpu::BindGroup>,
+    slices: Vec<Option<wgpu::BufferSlice<'a>>>,
     len: u32,
 }
 
 impl<'a> SpritesheetPrerender<'a> {
     fn render<'b>(&'a mut self, render_pass: &mut wgpu::RenderPass<'b>) where 'a: 'b {
-        if let Some(slice) = self.slice {
+        if self.len > 0 {
             render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_bind_group(0, &self.scene_uniform, &[]);
-            render_pass.set_bind_group(1, &self.bind_group, &[]);
-            render_pass.set_vertex_buffer(0, slice);
+
+            for (index, bind_group) in self.bind_groups.iter().enumerate() {
+                render_pass.set_bind_group(index as u32, bind_group, &[]);
+            }
+
+            {
+                let mut index = 0;
+
+                for slice in self.slices.iter() {
+                    if let Some(slice) = slice {
+                        render_pass.set_vertex_buffer(index, *slice);
+                        index += 1;
+                    }
+                }
+            }
+
             render_pass.draw(0..4, 0..self.len);
         }
     }
@@ -268,6 +315,7 @@ impl SpritesheetPipeline {
         engine: &crate::EngineState,
         scene_uniform_layout: &wgpu::BindGroupLayout,
         shader: wgpu::ShaderModuleDescriptor<'a>,
+        vertex_buffers: &[wgpu::VertexBufferLayout],
         bind_group_layout: wgpu::BindGroupLayout
     ) -> Self {
         let stencil = wgpu::StencilFaceState {
@@ -285,7 +333,7 @@ impl SpritesheetPipeline {
                 scene_uniform_layout,
                 &bind_group_layout,
             ])
-            .vertex_buffers(&[GPUSprite::LAYOUT])
+            .vertex_buffers(vertex_buffers)
             .topology(wgpu::PrimitiveTopology::TriangleStrip)
             .strip_index_format(wgpu::IndexFormat::Uint32)
             .depth_stencil(wgpu::StencilState {
@@ -302,7 +350,8 @@ impl SpritesheetPipeline {
 
 
 struct SpritesheetState {
-    instances: InstanceVec<GPUSprite>,
+    locations: InstanceVec<GPUSprite>,
+    palettes: Option<InstanceVec<Palette>>,
     bind_group: wgpu::BindGroup,
     has_palette: bool,
     is_grayscale: bool,
@@ -327,6 +376,8 @@ impl SpriteRenderer {
             // TODO lazy load this ?
             wgpu::include_wgsl!("../wgsl/sprite.wgsl"),
 
+            &[GPUSprite::LAYOUT],
+
             builders::BindGroupLayout::builder()
                 .label("Sprite")
                 .texture(wgpu::ShaderStages::FRAGMENT, wgpu::TextureSampleType::Float { filterable: false })
@@ -339,6 +390,8 @@ impl SpriteRenderer {
 
             // TODO lazy load this ?
             wgpu::include_wgsl!("../wgsl/sprite_palette.wgsl"),
+
+            &[GPUSprite::LAYOUT, Palette::LAYOUT],
 
             builders::BindGroupLayout::builder()
                 .label("Sprite")
@@ -353,6 +406,8 @@ impl SpriteRenderer {
 
             // TODO lazy load this ?
             wgpu::include_wgsl!("../wgsl/sprite_grayscale.wgsl"),
+
+            &[GPUSprite::LAYOUT],
 
             builders::BindGroupLayout::builder()
                 .label("Sprite")
@@ -399,8 +454,16 @@ impl SpriteRenderer {
                 .build(engine)
         };
 
+        let palettes = if palette.is_some() {
+            Some(InstanceVec::new())
+
+        } else {
+            None
+        };
+
         SpritesheetState {
-            instances: InstanceVec::new(),
+            locations: InstanceVec::new(),
+            palettes,
             bind_group,
             has_palette: palette.is_some(),
             is_grayscale,
@@ -410,7 +473,11 @@ impl SpriteRenderer {
     #[inline]
     pub(crate) fn before_layout(&mut self) {
         for (_, sheet) in self.spritesheets.iter_mut() {
-            sheet.instances.clear();
+            sheet.locations.clear();
+
+            if let Some(palettes) = sheet.palettes.as_mut() {
+                palettes.clear();
+            }
         }
     }
 
@@ -422,11 +489,24 @@ impl SpriteRenderer {
         SpritePrerender {
             spritesheets: self.spritesheets.iter_mut()
                 .map(|(_, sheet)| {
-                    let len = sheet.instances.len() as u32;
+                    let len = sheet.locations.len() as u32;
 
-                    let slice = sheet.instances.update_buffer(engine, &InstanceVecOptions {
-                        label: Some("Sprite Instance Buffer"),
-                    });
+                    let bind_groups = vec![
+                        scene_uniform,
+                        &sheet.bind_group,
+                    ];
+
+                    let slices = vec![
+                        sheet.locations.update_buffer(engine, &InstanceVecOptions {
+                            label: Some("Sprite Instance Buffer"),
+                        }),
+
+                        sheet.palettes.as_mut().and_then(|palettes| {
+                            palettes.update_buffer(engine, &InstanceVecOptions {
+                                label: Some("Sprite Palettes Buffer"),
+                            })
+                        }),
+                    ];
 
                     let pipeline = if sheet.has_palette {
                         &self.palette.pipeline
@@ -439,10 +519,9 @@ impl SpriteRenderer {
                     };
 
                     SpritesheetPrerender {
-                        scene_uniform,
                         pipeline,
-                        bind_group: &sheet.bind_group,
-                        slice,
+                        bind_groups,
+                        slices,
                         len,
                     }
                 })

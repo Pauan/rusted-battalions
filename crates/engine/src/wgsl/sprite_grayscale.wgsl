@@ -16,7 +16,6 @@ struct Sprite {
     @location(1) size: vec2<f32>,
     @location(2) z_index: f32,
     @location(3) tile: vec4<u32>,
-    @location(4) palette: u32,
 };
 
 struct VertexOutput {

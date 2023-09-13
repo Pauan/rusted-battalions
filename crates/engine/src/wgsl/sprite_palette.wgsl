@@ -17,8 +17,11 @@ struct Sprite {
     @location(1) size: vec2<f32>,
     @location(2) z_index: f32,
     @location(3) tile: vec4<u32>,
-    @location(4) palette: u32,
 };
+
+struct Palette {
+    @location(4) palette: u32,
+}
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -30,6 +33,7 @@ struct VertexOutput {
 fn vs_main(
     @builtin(vertex_index) in_vertex_index: u32,
     sprite: Sprite,
+    palette: Palette,
 ) -> VertexOutput {
     let vert_x = i32(in_vertex_index) < 2;
     let vert_y = i32(in_vertex_index) % 2;
@@ -48,7 +52,7 @@ fn vs_main(
     var out: VertexOutput;
     out.clip_position = vec4<f32>(x * max_z_index, y * max_z_index, z_index, max_z_index);
     out.uv = uv;
-    out.palette = sprite.palette;
+    out.palette = palette.palette;
     return out;
 }
 
