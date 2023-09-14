@@ -6,12 +6,13 @@ use crate::util::macros::wgsl;
 use crate::util::builders;
 use crate::util::buffer::{
     Uniform, TextureBuffer, InstanceVec, InstanceVecOptions,
-    RgbaImage, GrayscaleImage, IndexedImage,
+    RgbaImage, IndexedImage,
 };
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method};
 use crate::scene::{
     Handle, Handles, Texture, MinSize, Location, Padding, Origin, Offset, Size, ScreenSize,
     SceneLayoutInfo, SceneRenderInfo, ScreenSpace, NodeLayout,  NodeHandle, SceneUniform,
+    ScenePrerender, Prerender,
 };
 
 
@@ -59,6 +60,8 @@ pub(crate) struct GPUSprite {
 
 impl GPUSprite {
     pub(crate) fn update(&mut self, space: &ScreenSpace) {
+        let space = space.convert_to_wgpu_coordinates();
+
         self.position = [
             space.position[0],
 
@@ -80,22 +83,6 @@ impl GPUSprite {
 #[layout(location = 4)]
 pub(crate) struct GPUPalette {
     pub(crate) palette: u32,
-}
-
-
-/*pub struct ColorRgb {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-}*/
-
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
-#[layout(step_mode = Instance)]
-#[layout(location = 4)]
-pub(crate) struct GPUText {
-    pub(crate) color: [f32; 3],
 }
 
 
@@ -144,7 +131,7 @@ impl Sprite {
     fn update_gpu(&mut self, screen_size: &ScreenSize) {
         let parent = self.parent_space.as_ref().unwrap();
 
-        let space = parent.modify(&self.location, &screen_size).convert_to_wgpu_coordinates();
+        let space = parent.modify(&self.location, &screen_size);
 
         self.gpu.update(&space);
     }
@@ -225,15 +212,13 @@ impl NodeLayout for Sprite {
 
         if let Some(spritesheet) = info.renderer.sprite.spritesheets.get_mut(&spritesheet.handle) {
             self.gpu_index = spritesheet.locations.len();
+
             spritesheet.locations.push(self.gpu);
 
             match spritesheet.extra {
                 SpritesheetExtra::Normal => {},
                 SpritesheetExtra::Palette { ref mut palettes } => {
                     palettes.push(self.palette);
-                },
-                SpritesheetExtra::Text { .. } => {
-
                 },
             }
         }
@@ -263,9 +248,6 @@ impl NodeLayout for Sprite {
                     SpritesheetExtra::Palette { ref mut palettes } => {
                         palettes[self.gpu_index] = self.palette;
                     },
-                    SpritesheetExtra::Text { .. } => {
-
-                    },
                 }
             }
         }
@@ -275,60 +257,13 @@ impl NodeLayout for Sprite {
 }
 
 
-struct SpritesheetPrerender<'a> {
-    pipeline: &'a wgpu::RenderPipeline,
-    // TODO figure out a way to avoid the Vec
-    bind_groups: Vec<&'a wgpu::BindGroup>,
-    slices: Vec<Option<wgpu::BufferSlice<'a>>>,
-    len: u32,
-}
-
-impl<'a> SpritesheetPrerender<'a> {
-    fn render<'b>(&'a mut self, render_pass: &mut wgpu::RenderPass<'b>) where 'a: 'b {
-        if self.len > 0 {
-            render_pass.set_pipeline(&self.pipeline);
-
-            for (index, bind_group) in self.bind_groups.iter().enumerate() {
-                render_pass.set_bind_group(index as u32, bind_group, &[]);
-            }
-
-            {
-                let mut index = 0;
-
-                for slice in self.slices.iter() {
-                    if let Some(slice) = slice {
-                        render_pass.set_vertex_buffer(index, *slice);
-                        index += 1;
-                    }
-                }
-            }
-
-            render_pass.draw(0..4, 0..self.len);
-        }
-    }
-}
-
-
-pub(crate) struct SpritePrerender<'a> {
-    spritesheets: Vec<SpritesheetPrerender<'a>>,
-}
-
-impl<'a> SpritePrerender<'a> {
-    pub(crate) fn render<'b>(&'a mut self, render_pass: &mut wgpu::RenderPass<'b>) where 'a: 'b {
-        for sheet in self.spritesheets.iter_mut() {
-            sheet.render(render_pass);
-        }
-    }
-}
-
-
-struct SpritesheetPipeline {
-    bind_group_layout: wgpu::BindGroupLayout,
-    pipeline: wgpu::RenderPipeline,
+pub(crate) struct SpritesheetPipeline {
+    pub(crate) bind_group_layout: wgpu::BindGroupLayout,
+    pub(crate) pipeline: wgpu::RenderPipeline,
 }
 
 impl SpritesheetPipeline {
-    fn new<'a>(
+    pub(crate) fn new<'a>(
         engine: &crate::EngineState,
         scene_uniform_layout: &wgpu::BindGroupLayout,
         shader: wgpu::ShaderModuleDescriptor<'a>,
@@ -366,13 +301,14 @@ impl SpritesheetPipeline {
 }
 
 
+pub(crate) static SCENE_SHADER: &'static str = include_str!("../wgsl/common/scene.wgsl");
+pub(crate) static SPRITE_SHADER: &'static str = include_str!("../wgsl/common/sprite.wgsl");
+
+
 enum SpritesheetExtra {
     Normal,
     Palette {
         palettes: InstanceVec<GPUPalette>,
-    },
-    Text {
-        texts: InstanceVec<GPUText>,
     },
 }
 
@@ -385,7 +321,6 @@ struct SpritesheetState {
 pub(crate) struct SpriteRenderer {
     normal: SpritesheetPipeline,
     palette: SpritesheetPipeline,
-    text: SpritesheetPipeline,
     spritesheets: Handles<SpritesheetState>,
 }
 
@@ -394,9 +329,6 @@ impl SpriteRenderer {
     pub(crate) fn new(engine: &crate::EngineState, scene_uniform: &mut Uniform<SceneUniform>) -> Self {
         let scene_uniform_layout = Uniform::bind_group_layout(scene_uniform, engine);
 
-        static SCENE: &'static str = include_str!("../wgsl/common/scene.wgsl");
-        static SPRITE: &'static str = include_str!("../wgsl/common/sprite.wgsl");
-
         let normal = SpritesheetPipeline::new(
             engine,
             scene_uniform_layout,
@@ -404,8 +336,8 @@ impl SpriteRenderer {
             // TODO lazy load this ?
             wgsl![
                 "spritesheet/normal.wgsl",
-                SCENE,
-                SPRITE,
+                SCENE_SHADER,
+                SPRITE_SHADER,
                 include_str!("../wgsl/spritesheet/normal.wgsl"),
             ],
 
@@ -424,8 +356,8 @@ impl SpriteRenderer {
             // TODO lazy load this ?
             wgsl![
                 "spritesheet/palette.wgsl",
-                SCENE,
-                SPRITE,
+                SCENE_SHADER,
+                SPRITE_SHADER,
                 include_str!("../wgsl/spritesheet/palette.wgsl"),
             ],
 
@@ -438,38 +370,17 @@ impl SpriteRenderer {
                 .build(engine),
         );
 
-        let text = SpritesheetPipeline::new(
-            engine,
-            scene_uniform_layout,
-
-            // TODO lazy load this ?
-            wgsl![
-                "spritesheet/text.wgsl",
-                SCENE,
-                SPRITE,
-                include_str!("../wgsl/spritesheet/text.wgsl"),
-            ],
-
-            &[GPUSprite::LAYOUT, GPUText::LAYOUT],
-
-            builders::BindGroupLayout::builder()
-                .label("Sprite")
-                .texture(wgpu::ShaderStages::FRAGMENT, wgpu::TextureSampleType::Uint)
-                .build(engine),
-        );
-
         Self {
             normal,
             palette,
-            text,
             spritesheets: Handles::new(),
         }
     }
 
-    fn spritesheet_state(&self, engine: &crate::EngineState, texture: &TextureBuffer, palette: Option<&TextureBuffer>) -> SpritesheetState {
+    fn new_spritesheet(&mut self, engine: &crate::EngineState, handle: &Handle, texture: &TextureBuffer, palette: Option<&TextureBuffer>) {
         let locations = InstanceVec::new();
 
-        if let Some(palette) = palette {
+        let state = if let Some(palette) = palette {
             assert_eq!(texture.texture.format(), IndexedImage::FORMAT, "texture must be an IndexedImage");
             assert_eq!(palette.texture.format(), RgbaImage::FORMAT, "palette must be an RgbaImage");
 
@@ -486,19 +397,6 @@ impl SpriteRenderer {
                     .build(engine),
             }
 
-        } else if texture.texture.format() == GrayscaleImage::FORMAT {
-            SpritesheetState {
-                locations,
-                extra: SpritesheetExtra::Text {
-                    texts: InstanceVec::new(),
-                },
-                bind_group: builders::BindGroup::builder()
-                    .label("Spritesheet")
-                    .layout(&self.text.bind_group_layout)
-                    .texture_view(&texture.view)
-                    .build(engine),
-            }
-
         } else {
             assert_eq!(texture.texture.format(), RgbaImage::FORMAT, "texture must be an RgbaImage");
 
@@ -511,7 +409,13 @@ impl SpriteRenderer {
                     .texture_view(&texture.view)
                     .build(engine),
             }
-        }
+        };
+
+        self.spritesheets.insert(handle, state);
+    }
+
+    fn remove_spritesheet(&mut self, handle: &Handle) {
+        self.spritesheets.remove(handle);
     }
 
     #[inline]
@@ -524,9 +428,6 @@ impl SpriteRenderer {
                 SpritesheetExtra::Palette { ref mut palettes } => {
                     palettes.clear();
                 },
-                SpritesheetExtra::Text { ref mut texts } => {
-                    texts.clear();
-                },
             }
         }
     }
@@ -535,51 +436,49 @@ impl SpriteRenderer {
     pub(crate) fn before_render(&mut self) {}
 
     #[inline]
-    pub(crate) fn prerender<'a>(&'a mut self, engine: &crate::EngineState, scene_uniform: &'a wgpu::BindGroup) -> SpritePrerender<'a> {
-        SpritePrerender {
-            spritesheets: self.spritesheets.iter_mut()
-                .map(|(_, sheet)| {
-                    let len = sheet.locations.len() as u32;
+    pub(crate) fn prerender<'a>(
+        &'a mut self,
+        engine: &crate::EngineState,
+        scene_uniform: &'a wgpu::BindGroup,
+        prerender: &mut ScenePrerender<'a>,
+    ) {
+        prerender.prerenders.reserve(self.spritesheets.len());
 
-                    let bind_groups = vec![
-                        scene_uniform,
-                        &sheet.bind_group,
-                    ];
+        for (_, sheet) in self.spritesheets.iter_mut() {
+            let instances = sheet.locations.len() as u32;
 
-                    let pipeline = match sheet.extra {
-                        SpritesheetExtra::Normal => &self.normal.pipeline,
-                        SpritesheetExtra::Palette { .. } => &self.palette.pipeline,
-                        SpritesheetExtra::Text { .. } => &self.text.pipeline,
-                    };
+            let bind_groups = vec![
+                scene_uniform,
+                &sheet.bind_group,
+            ];
 
-                    let slices = vec![
-                        sheet.locations.update_buffer(engine, &InstanceVecOptions {
-                            label: Some("Sprite Instance Buffer"),
-                        }),
+            let pipeline = match sheet.extra {
+                SpritesheetExtra::Normal => &self.normal.pipeline,
+                SpritesheetExtra::Palette { .. } => &self.palette.pipeline,
+            };
 
-                        match sheet.extra {
-                            SpritesheetExtra::Normal => None,
-                            SpritesheetExtra::Palette { ref mut palettes } => {
-                                palettes.update_buffer(engine, &InstanceVecOptions {
-                                    label: Some("Sprite Palettes Buffer"),
-                                })
-                            },
-                            SpritesheetExtra::Text { ref mut texts } => {
-                                texts.update_buffer(engine, &InstanceVecOptions {
-                                    label: Some("Sprite Texts Buffer"),
-                                })
-                            },
-                        }
-                    ];
+            let slices = vec![
+                sheet.locations.update_buffer(engine, &InstanceVecOptions {
+                    label: Some("Sprite Instance Buffer"),
+                }),
 
-                    SpritesheetPrerender {
-                        pipeline,
-                        bind_groups,
-                        slices,
-                        len,
-                    }
-                })
-                .collect(),
+                match sheet.extra {
+                    SpritesheetExtra::Normal => None,
+                    SpritesheetExtra::Palette { ref mut palettes } => {
+                        palettes.update_buffer(engine, &InstanceVecOptions {
+                            label: Some("Sprite Palettes Buffer"),
+                        })
+                    },
+                }
+            ];
+
+            prerender.prerenders.push(Prerender {
+                vertices: 4,
+                instances,
+                pipeline,
+                bind_groups,
+                slices,
+            });
         }
     }
 }
@@ -598,34 +497,26 @@ pub struct Spritesheet {
 impl Spritesheet {
     #[inline]
     pub fn new() -> Self {
-        Self {
-            handle: Handle::new(),
-        }
-    }
-
-    #[inline]
-    pub fn new_load<'a, 'b, Window>(engine: &mut crate::Engine<Window>, settings: SpritesheetSettings<'a, 'b>) -> Self {
-        let x = Self::new();
-        x.load(engine, settings);
-        x
+        Self { handle: Handle::new() }
     }
 
     pub fn load<'a, 'b, Window>(&self, engine: &mut crate::Engine<Window>, settings: SpritesheetSettings<'a, 'b>) {
-        let texture = engine.scene.textures.get(&settings.texture.handle).expect("SpritesheetSettings texture is not loaded");
+        let texture = engine.scene.textures.get(&settings.texture.handle)
+            .expect("SpritesheetSettings texture is not loaded");
 
         let palette = settings.palette.map(|palette| {
-            engine.scene.textures.get(&palette.handle).expect("SpritesheetSettings palette is not loaded")
+            engine.scene.textures.get(&palette.handle)
+                .expect("SpritesheetSettings palette is not loaded")
         });
 
-        let renderer = &mut engine.scene.renderer.sprite;
-        renderer.spritesheets.insert(&self.handle, renderer.spritesheet_state(&engine.state, texture, palette));
+        engine.scene.renderer.sprite.new_spritesheet(&engine.state, &self.handle, texture, palette);
 
         // TODO test this
         engine.scene.changed.trigger_layout_change();
     }
 
     pub fn unload<Window>(&self, engine: &mut crate::Engine<Window>) {
-        engine.scene.renderer.sprite.spritesheets.remove(&self.handle);
+        engine.scene.renderer.sprite.remove_spritesheet(&self.handle);
 
         // TODO test this
         engine.scene.changed.trigger_layout_change();

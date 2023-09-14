@@ -11,12 +11,12 @@ use dominator::clone;
 use rusted_battalions_engine as engine;
 use rusted_battalions_engine::{
     Engine, EngineSettings, Spritesheet, SpritesheetSettings, RgbaImage,
-    GrayscaleImage, IndexedImage, Texture, Node,
+    GrayscaleImage, IndexedImage, Texture, Node, BitmapFont,
+    CharSize, ColorRgb, BitmapText, BitmapFontSettings,
 };
 
 use crate::util::future::executor;
 use grid::{ScreenSize};
-use ui::text::BitmapText;
 
 pub use grid::{Grid};
 
@@ -65,25 +65,15 @@ impl Spritesheets {
 
 
 struct Fonts {
-    aw_big: BitmapText,
-    unison: BitmapText,
+    aw_big: BitmapFont,
+    unison: BitmapFont,
 }
 
 impl Fonts {
     fn new() -> Self {
         Self {
-            aw_big: BitmapText {
-                spritesheet: Spritesheet::new(),
-                columns: 32,
-                tile_width: 16,
-                tile_height: 32,
-            },
-            unison: BitmapText {
-                spritesheet: Spritesheet::new(),
-                columns: 64,
-                tile_width: 8,
-                tile_height: 16,
-            },
+            aw_big: BitmapFont::new(),
+            unison: BitmapFont::new(),
         }
     }
 }
@@ -142,7 +132,7 @@ impl Game {
                 Some(Grid::render(&this, grid))
             })))
 
-            .child(engine::Wrap::builder()
+            .child(engine::Stack::builder()
                 .z_index(9000.0)
 
                 .size(engine::Size {
@@ -150,47 +140,14 @@ impl Game {
                     height: engine::Length::Parent(1.0),
                 })
 
-                .children(" '-.".chars().map(|c| {
-                    this.fonts.unison.sprite(c).size(engine::Size {
+                .child(BitmapText::builder()
+                    .text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello there world.\nHow's it going.".into())
+                    .font(this.fonts.unison.clone())
+                    .char_size(CharSize {
                         width: engine::Length::Px(32),
                         height: engine::Length::Px(64),
-                    }).build()
-                }))
-
-                .children("ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().map(|c| {
-                    this.fonts.unison.sprite(c).size(engine::Size {
-                        width: engine::Length::Px(32),
-                        height: engine::Length::Px(64),
-                    }).build()
-                }))
-
-                .children("abcdefghijklmnopqrstuvwxyz".chars().map(|c| {
-                    this.fonts.unison.sprite(c).size(engine::Size {
-                        width: engine::Length::Px(32),
-                        height: engine::Length::Px(64),
-                    }).build()
-                }))
-
-                .children("ÆÖÜß".chars().map(|c| {
-                    this.fonts.unison.sprite(c).size(engine::Size {
-                        width: engine::Length::Px(32),
-                        height: engine::Length::Px(64),
-                    }).build()
-                }))
-
-                .children("àáäæèéêíïñóùü".chars().map(|c| {
-                    this.fonts.unison.sprite(c).size(engine::Size {
-                        width: engine::Length::Px(32),
-                        height: engine::Length::Px(64),
-                    }).build()
-                }))
-
-                .children(this.fonts.unison.sprites("\nHello there handsome.\nHow's it going.").map(|sprite| {
-                    sprite.size(engine::Size {
-                        width: engine::Length::Px(32),
-                        height: engine::Length::Px(64),
-                    }).build()
-                }))
+                    })
+                    .build())
 
                 .build())
 
@@ -246,7 +203,9 @@ impl Game {
         {
             let effect = RgbaImage::from_bytes("effect", include_bytes!("../../../dist/sprites/effect.png"));
 
-            let texture = Texture::new_load(&mut engine, &effect);
+            let texture = Texture::new();
+
+            texture.load(&mut engine, &effect);
 
             self.spritesheets.effect.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
@@ -272,16 +231,22 @@ impl Game {
                 include_bytes!("../../../dist/sprites/units_big.png"),
             );
 
-            let palette_texture = Texture::new_load(&mut engine, &unit_palette);
+            let palette_texture = Texture::new();
 
-            let texture = Texture::new_load(&mut engine, &unit_small);
+            palette_texture.load(&mut engine, &unit_palette);
+
+            let texture = Texture::new();
+
+            texture.load(&mut engine, &unit_small);
 
             self.spritesheets.unit_small.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
                 palette: Some(&palette_texture),
             });
 
-            let texture = Texture::new_load(&mut engine, &unit_big);
+            let texture = Texture::new();
+
+            texture.load(&mut engine, &unit_big);
 
             self.spritesheets.unit_big.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
@@ -301,8 +266,11 @@ impl Game {
                 include_bytes!("../../../dist/sprites/buildings_small.png"),
             );
 
-            let texture = Texture::new_load(&mut engine, &buildings_small);
-            let palette = Texture::new_load(&mut engine, &buildings_palette);
+            let texture = Texture::new();
+            let palette = Texture::new();
+
+            texture.load(&mut engine, &buildings_small);
+            palette.load(&mut engine, &buildings_palette);
 
             self.spritesheets.building.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
@@ -322,8 +290,11 @@ impl Game {
                 include_bytes!("../../../dist/sprites/terrain_small.png"),
             );
 
-            let texture = Texture::new_load(&mut engine, &terrain_small);
-            let palette = Texture::new_load(&mut engine, &terrain_palette);
+            let texture = Texture::new();
+            let palette = Texture::new();
+
+            texture.load(&mut engine, &terrain_small);
+            palette.load(&mut engine, &terrain_palette);
 
             self.spritesheets.terrain.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
@@ -331,19 +302,23 @@ impl Game {
             });
         }
 
-        {
+        /*{
             let aw_font = RgbaImage::from_bytes(
                 "aw_font",
                 include_bytes!("../../../dist/sprites/text.png"),
             );
 
-            let texture = Texture::new_load(&mut engine, &aw_font);
+            let texture = Texture::new();
 
-            self.fonts.aw_big.spritesheet.load(&mut engine, SpritesheetSettings {
+            texture.load(&mut engine, &aw_font);
+
+            self.fonts.aw_big.load(&mut engine, BitmapFontSettings {
                 texture: &texture,
-                palette: None,
+                columns: 32,
+                tile_width: 16,
+                tile_height: 32,
             });
-        }
+        }*/
 
         {
             let unison_font = GrayscaleImage::from_bytes(
@@ -351,11 +326,15 @@ impl Game {
                 include_bytes!("../../../dist/fonts/unison.png"),
             );
 
-            let texture = Texture::new_load(&mut engine, &unison_font);
+            let texture = Texture::new();
 
-            self.fonts.unison.spritesheet.load(&mut engine, SpritesheetSettings {
+            texture.load(&mut engine, &unison_font);
+
+            self.fonts.unison.load(&mut engine, BitmapFontSettings {
                 texture: &texture,
-                palette: None,
+                columns: 64,
+                tile_width: 8,
+                tile_height: 16,
             });
         }
 

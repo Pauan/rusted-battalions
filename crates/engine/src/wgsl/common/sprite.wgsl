@@ -18,7 +18,7 @@ fn quad_y(in_vertex_index: u32) -> i32 {
 
 
 fn sprite_uv(sprite: Sprite, vert_x: i32, vert_y: i32) -> vec2<f32> {
-    let uv_x = select(sprite.tile[0], sprite.tile[2], vert_x == 1);
+    let uv_x = select(sprite.tile[2], sprite.tile[0], vert_x == 0);
     let uv_y = select(sprite.tile[1], sprite.tile[3], vert_y == 0);
 
     return vec2(f32(uv_x), f32(uv_y));

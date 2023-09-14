@@ -5,7 +5,8 @@ use std::pin::Pin;
 use crate::Spawner;
 use crate::util::{Arc, Atomic, Lock};
 use crate::util::buffer::{Uniform, TextureBuffer, IntoTexture};
-use sprite::{SpriteRenderer, SpritePrerender};
+use sprite::{SpriteRenderer};
+use bitmap_text::{BitmapTextRenderer};
 
 //mod border_grid;
 mod builder;
@@ -14,6 +15,7 @@ mod row;
 mod column;
 mod stack;
 mod wrap;
+mod bitmap_text;
 
 //pub use border_grid::{BorderGrid, BorderGridBuilder, BorderSize, Quadrants};
 pub use builder::{Node};
@@ -22,6 +24,7 @@ pub use row::{Row, RowBuilder};
 pub use column::{Column, ColumnBuilder};
 pub use stack::{Stack, StackBuilder};
 pub use wrap::{Wrap, WrapBuilder};
+pub use bitmap_text::{BitmapText, BitmapTextBuilder, BitmapFont, BitmapFontSettings, ColorRgb, CharSize};
 
 
 /// f32 from 0.0 to 1.0
@@ -477,6 +480,11 @@ impl<T> Handles<T> {
         self.values.iter().position(|(x, _)| x.eq(handle))
     }
 
+    #[inline]
+    pub(crate) fn len(&self) -> usize {
+        self.values.len()
+    }
+
     pub(crate) fn get(&self, handle: &Handle) -> Option<&T> {
         self.values.iter().find_map(|(x, value)| {
             if x.eq(handle) {
@@ -530,6 +538,7 @@ impl<T> Handles<T> {
 }
 
 
+
 #[derive(Clone)]
 pub struct Texture {
     pub(crate) handle: Handle,
@@ -538,19 +547,9 @@ pub struct Texture {
 impl Texture {
     #[inline]
     pub fn new() -> Self {
-        Self {
-            handle: Handle::new(),
-        }
+        Self { handle: Handle::new() }
     }
 
-    #[inline]
-    pub fn new_load<Window, T>(engine: &mut crate::Engine<Window>, image: &T) -> Self where T: IntoTexture {
-        let x = Self::new();
-        x.load(engine, image);
-        x
-    }
-
-    #[inline]
     pub fn load<Window, T>(&self, engine: &mut crate::Engine<Window>, image: &T) where T: IntoTexture {
         let buffer = TextureBuffer::new(&engine.state, image);
 
@@ -561,7 +560,6 @@ impl Texture {
         engine.scene.changed.trigger_render_change();
     }
 
-    #[inline]
     pub fn unload<Window>(&self, engine: &mut crate::Engine<Window>) {
         engine.scene.textures.remove(&self.handle);
 
@@ -624,16 +622,57 @@ impl SceneChanged {
 }
 
 
+pub(crate) struct Prerender<'a> {
+    pub(crate) vertices: u32,
+    pub(crate) instances: u32,
+    pub(crate) pipeline: &'a wgpu::RenderPipeline,
+    // TODO figure out a way to avoid the Vec
+    pub(crate) bind_groups: Vec<&'a wgpu::BindGroup>,
+    pub(crate) slices: Vec<Option<wgpu::BufferSlice<'a>>>,
+}
+
+impl<'a> Prerender<'a> {
+    fn render<'b>(&'a mut self, render_pass: &mut wgpu::RenderPass<'b>) where 'a: 'b {
+        if self.instances > 0 {
+            render_pass.set_pipeline(&self.pipeline);
+
+            for (index, bind_group) in self.bind_groups.iter().enumerate() {
+                render_pass.set_bind_group(index as u32, bind_group, &[]);
+            }
+
+            {
+                let mut index = 0;
+
+                for slice in self.slices.iter() {
+                    if let Some(slice) = slice {
+                        render_pass.set_vertex_buffer(index, *slice);
+                        index += 1;
+                    }
+                }
+            }
+
+            render_pass.draw(0..self.vertices, 0..self.instances);
+        }
+    }
+}
+
 pub(crate) struct ScenePrerender<'a> {
-    sprite: SpritePrerender<'a>,
+    pub(crate) prerenders: Vec<Prerender<'a>>,
 }
 
 impl<'a> ScenePrerender<'a> {
+    #[inline]
+    fn new() -> Self {
+        Self { prerenders: vec![] }
+    }
+
     /// Does the actual rendering, using the prepared data.
     /// The lifetimes are necessary in order to make it work with wgpu::RenderPass.
     #[inline]
     pub(crate) fn render<'b>(&'a mut self, render_pass: &mut wgpu::RenderPass<'b>) where 'a: 'b {
-        self.sprite.render(render_pass);
+        for prerender in self.prerenders.iter_mut() {
+            prerender.render(render_pass);
+        }
     }
 }
 
@@ -650,6 +689,7 @@ pub(crate) struct SceneUniform {
 pub(crate) struct SceneRenderer {
     pub(crate) scene_uniform: Uniform<SceneUniform>,
     pub(crate) sprite: SpriteRenderer,
+    pub(crate) bitmap_text: BitmapTextRenderer,
 }
 
 impl SceneRenderer {
@@ -664,6 +704,7 @@ impl SceneRenderer {
 
         Self {
             sprite: SpriteRenderer::new(engine, &mut scene_uniform),
+            bitmap_text: BitmapTextRenderer::new(engine, &mut scene_uniform),
             scene_uniform,
         }
     }
@@ -679,6 +720,7 @@ impl SceneRenderer {
     fn before_layout(&mut self) {
         self.scene_uniform.max_z_index = 1.0;
         self.sprite.before_layout();
+        self.bitmap_text.before_layout();
     }
 
     /// This is run before doing the rendering of the children,
@@ -688,25 +730,30 @@ impl SceneRenderer {
     fn before_render(&mut self) {
         self.scene_uniform.max_z_index = 1.0;
         self.sprite.before_render();
+        self.bitmap_text.before_render();
     }
 
     #[inline]
     fn prerender<'a>(&'a mut self, engine: &crate::EngineState) -> ScenePrerender<'a> {
         let bind_group = Uniform::write(&mut self.scene_uniform, engine);
 
-        ScenePrerender {
-            sprite: self.sprite.prerender(engine, bind_group),
-        }
+        let mut prerender = ScenePrerender::new();
+
+        self.sprite.prerender(engine, bind_group, &mut prerender);
+        self.bitmap_text.prerender(engine, bind_group, &mut prerender);
+
+        prerender
     }
 }
-
 
 pub(crate) struct Scene {
     root: Node,
     pub(crate) changed: Arc<SceneChanged>,
     pub(crate) renderer: SceneRenderer,
-    pub(crate) textures: Handles<TextureBuffer>,
     pub(crate) rendered_nodes: Vec<NodeHandle>,
+
+    /// Assets
+    pub(crate) textures: Handles<TextureBuffer>,
 }
 
 impl Scene {
