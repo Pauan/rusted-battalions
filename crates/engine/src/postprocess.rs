@@ -1,4 +1,5 @@
 use crate::util::builders;
+use crate::util::macros::wgsl;
 
 
 struct Texture {
@@ -96,7 +97,10 @@ impl Postprocess {
         let render_pipeline = builders::Pipeline::builder()
             .label("Postprocess")
             // TODO lazy load this ?
-            .shader(wgpu::include_wgsl!("postprocess.wgsl"))
+            .shader(wgsl![
+                "postprocess.wgsl",
+                include_str!("postprocess.wgsl"),
+            ])
             .bind_groups(&[&bind_group_layout])
             .topology(wgpu::PrimitiveTopology::TriangleStrip)
             .strip_index_format(wgpu::IndexFormat::Uint32)

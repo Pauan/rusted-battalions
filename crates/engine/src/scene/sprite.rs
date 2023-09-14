@@ -2,6 +2,7 @@ use wgpu_helpers::VertexLayout;
 use bytemuck::{Pod, Zeroable};
 use futures_signals::signal::{Signal, SignalExt};
 
+use crate::util::macros::wgsl;
 use crate::util::builders;
 use crate::util::buffer::{
     Uniform, TextureBuffer, InstanceVec, InstanceVecOptions,
@@ -393,12 +394,20 @@ impl SpriteRenderer {
     pub(crate) fn new(engine: &crate::EngineState, scene_uniform: &mut Uniform<SceneUniform>) -> Self {
         let scene_uniform_layout = Uniform::bind_group_layout(scene_uniform, engine);
 
+        static SCENE: &'static str = include_str!("../wgsl/common/scene.wgsl");
+        static SPRITE: &'static str = include_str!("../wgsl/common/sprite.wgsl");
+
         let normal = SpritesheetPipeline::new(
             engine,
             scene_uniform_layout,
 
             // TODO lazy load this ?
-            wgpu::include_wgsl!("../wgsl/sprite.wgsl"),
+            wgsl![
+                "spritesheet/normal.wgsl",
+                SCENE,
+                SPRITE,
+                include_str!("../wgsl/spritesheet/normal.wgsl"),
+            ],
 
             &[GPUSprite::LAYOUT],
 
@@ -413,7 +422,12 @@ impl SpriteRenderer {
             scene_uniform_layout,
 
             // TODO lazy load this ?
-            wgpu::include_wgsl!("../wgsl/sprite_palette.wgsl"),
+            wgsl![
+                "spritesheet/palette.wgsl",
+                SCENE,
+                SPRITE,
+                include_str!("../wgsl/spritesheet/palette.wgsl"),
+            ],
 
             &[GPUSprite::LAYOUT, GPUPalette::LAYOUT],
 
@@ -429,7 +443,12 @@ impl SpriteRenderer {
             scene_uniform_layout,
 
             // TODO lazy load this ?
-            wgpu::include_wgsl!("../wgsl/sprite_grayscale.wgsl"),
+            wgsl![
+                "spritesheet/text.wgsl",
+                SCENE,
+                SPRITE,
+                include_str!("../wgsl/spritesheet/text.wgsl"),
+            ],
 
             &[GPUSprite::LAYOUT, GPUText::LAYOUT],
 
