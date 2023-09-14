@@ -1,4 +1,4 @@
-use wgpu_macros::VertexLayout;
+use wgpu_helpers::VertexLayout;
 use bytemuck::{Pod, Zeroable};
 use futures_signals::signal::{Signal, SignalExt};
 
@@ -48,7 +48,7 @@ impl Tile {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
-#[layout(Instance)]
+#[layout(step_mode = Instance)]
 pub(crate) struct GPUSprite {
     pub(crate) position: [f32; 2],
     pub(crate) size: [f32; 2],
@@ -74,23 +74,11 @@ impl GPUSprite {
 
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
+#[layout(step_mode = Instance)]
+#[layout(location = 4)]
 pub(crate) struct Palette {
     pub(crate) palette: u32,
-}
-
-impl Palette {
-    const LAYOUT: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
-        array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-        step_mode: wgpu::VertexStepMode::Instance,
-        attributes: &[
-            wgpu::VertexAttribute {
-                format: wgpu::VertexFormat::Uint32,
-                offset: 0,
-                shader_location: 4,
-            },
-        ],
-    };
 }
 
 

@@ -15,7 +15,6 @@ webgl = ["wgpu/webgl"]
 [dependencies]
 raw-window-handle = "0.5.2"
 static_assertions = "1.1.0"
-wgpu_macros = "0.1.0"
 futures-signals = "0.3.32"
 futures = "0.3.28"
 
@@ -34,3 +33,6 @@ features = [
 
 [dependencies.wgpu]
 version = "0.17.0"
+
+[dependencies.wgpu-helpers]
+path = "../wgpu-helpers"
