@@ -67,6 +67,7 @@ impl Spritesheets {
 struct Fonts {
     aw_big: BitmapFont,
     unison: BitmapFont,
+    unifont: BitmapFont,
 }
 
 impl Fonts {
@@ -74,6 +75,7 @@ impl Fonts {
         Self {
             aw_big: BitmapFont::new(),
             unison: BitmapFont::new(),
+            unifont: BitmapFont::new(),
         }
     }
 }
@@ -334,6 +336,24 @@ impl Game {
                 texture: &texture,
                 columns: 64,
                 tile_width: 8,
+                tile_height: 16,
+            });
+        }
+
+        {
+            let image = GrayscaleImage::from_bytes(
+                "unifont",
+                include_bytes!("../../../dist/fonts/unifont.png"),
+            );
+
+            let texture = Texture::new();
+
+            texture.load(&mut engine, &image);
+
+            self.fonts.unifont.load(&mut engine, BitmapFontSettings {
+                texture: &texture,
+                columns: 256,
+                tile_width: 16,
                 tile_height: 16,
             });
         }
