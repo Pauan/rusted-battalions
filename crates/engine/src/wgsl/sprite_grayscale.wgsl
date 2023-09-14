@@ -18,15 +18,21 @@ struct Sprite {
     @location(3) tile: vec4<u32>,
 };
 
+struct Text {
+    @location(4) color: vec3<f32>,
+};
+
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
+    @location(2) color: vec3<f32>,
 };
 
 @vertex
 fn vs_main(
     @builtin(vertex_index) in_vertex_index: u32,
     sprite: Sprite,
+    text: Text,
 ) -> VertexOutput {
     let vert_x = i32(in_vertex_index) < 2;
     let vert_y = i32(in_vertex_index) % 2;
@@ -45,6 +51,7 @@ fn vs_main(
     var out: VertexOutput;
     out.clip_position = vec4<f32>(x * max_z_index, y * max_z_index, z_index, max_z_index);
     out.uv = uv;
+    out.color = text.color;
     return out;
 }
 
@@ -56,6 +63,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
 
     } else {
-        return vec4(0.0, 0.0, 0.0, 1.0);
+        return vec4(in.color, 1.0);
     }
 }

@@ -77,8 +77,24 @@ impl GPUSprite {
 #[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
 #[layout(step_mode = Instance)]
 #[layout(location = 4)]
-pub(crate) struct Palette {
+pub(crate) struct GPUPalette {
     pub(crate) palette: u32,
+}
+
+
+/*pub struct ColorRgb {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+}*/
+
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
+#[layout(step_mode = Instance)]
+#[layout(location = 4)]
+pub(crate) struct GPUText {
+    pub(crate) color: [f32; 3],
 }
 
 
@@ -99,7 +115,7 @@ pub struct Sprite {
     gpu: GPUSprite,
     gpu_index: usize,
 
-    palette: Palette,
+    palette: GPUPalette,
 }
 
 impl Sprite {
@@ -118,7 +134,7 @@ impl Sprite {
             gpu: GPUSprite::default(),
             gpu_index: 0,
 
-            palette: Palette {
+            palette: GPUPalette {
                 palette: 0,
             },
         }
@@ -210,8 +226,14 @@ impl NodeLayout for Sprite {
             self.gpu_index = spritesheet.locations.len();
             spritesheet.locations.push(self.gpu);
 
-            if let Some(palettes) = &mut spritesheet.palettes {
-                palettes.push(self.palette);
+            match spritesheet.extra {
+                SpritesheetExtra::Normal => {},
+                SpritesheetExtra::Palette { ref mut palettes } => {
+                    palettes.push(self.palette);
+                },
+                SpritesheetExtra::Text { .. } => {
+
+                },
             }
         }
 
@@ -235,8 +257,14 @@ impl NodeLayout for Sprite {
             if let Some(spritesheet) = info.renderer.sprite.spritesheets.get_mut(&spritesheet.handle) {
                 spritesheet.locations[self.gpu_index] = self.gpu;
 
-                if let Some(palettes) = &mut spritesheet.palettes {
-                    palettes[self.gpu_index] = self.palette;
+                match spritesheet.extra {
+                    SpritesheetExtra::Normal => {},
+                    SpritesheetExtra::Palette { ref mut palettes } => {
+                        palettes[self.gpu_index] = self.palette;
+                    },
+                    SpritesheetExtra::Text { .. } => {
+
+                    },
                 }
             }
         }
@@ -337,18 +365,26 @@ impl SpritesheetPipeline {
 }
 
 
+enum SpritesheetExtra {
+    Normal,
+    Palette {
+        palettes: InstanceVec<GPUPalette>,
+    },
+    Text {
+        texts: InstanceVec<GPUText>,
+    },
+}
+
 struct SpritesheetState {
     locations: InstanceVec<GPUSprite>,
-    palettes: Option<InstanceVec<Palette>>,
     bind_group: wgpu::BindGroup,
-    has_palette: bool,
-    is_grayscale: bool,
+    extra: SpritesheetExtra,
 }
 
 pub(crate) struct SpriteRenderer {
     normal: SpritesheetPipeline,
     palette: SpritesheetPipeline,
-    grayscale: SpritesheetPipeline,
+    text: SpritesheetPipeline,
     spritesheets: Handles<SpritesheetState>,
 }
 
@@ -379,7 +415,7 @@ impl SpriteRenderer {
             // TODO lazy load this ?
             wgpu::include_wgsl!("../wgsl/sprite_palette.wgsl"),
 
-            &[GPUSprite::LAYOUT, Palette::LAYOUT],
+            &[GPUSprite::LAYOUT, GPUPalette::LAYOUT],
 
             builders::BindGroupLayout::builder()
                 .label("Sprite")
@@ -388,14 +424,14 @@ impl SpriteRenderer {
                 .build(engine),
         );
 
-        let grayscale = SpritesheetPipeline::new(
+        let text = SpritesheetPipeline::new(
             engine,
             scene_uniform_layout,
 
             // TODO lazy load this ?
             wgpu::include_wgsl!("../wgsl/sprite_grayscale.wgsl"),
 
-            &[GPUSprite::LAYOUT],
+            &[GPUSprite::LAYOUT, GPUText::LAYOUT],
 
             builders::BindGroupLayout::builder()
                 .label("Sprite")
@@ -406,55 +442,56 @@ impl SpriteRenderer {
         Self {
             normal,
             palette,
-            grayscale,
+            text,
             spritesheets: Handles::new(),
         }
     }
 
     fn spritesheet_state(&self, engine: &crate::EngineState, texture: &TextureBuffer, palette: Option<&TextureBuffer>) -> SpritesheetState {
-        let is_grayscale = texture.texture.format() == GrayscaleImage::FORMAT;
+        let locations = InstanceVec::new();
 
-        let bind_group = if let Some(palette) = palette {
+        if let Some(palette) = palette {
             assert_eq!(texture.texture.format(), IndexedImage::FORMAT, "texture must be an IndexedImage");
             assert_eq!(palette.texture.format(), RgbaImage::FORMAT, "palette must be an RgbaImage");
 
-            builders::BindGroup::builder()
-                .label("Spritesheet")
-                .layout(&self.palette.bind_group_layout)
-                .texture_view(&texture.view)
-                .texture_view(&palette.view)
-                .build(engine)
+            SpritesheetState {
+                locations,
+                extra: SpritesheetExtra::Palette {
+                    palettes: InstanceVec::new(),
+                },
+                bind_group: builders::BindGroup::builder()
+                    .label("Spritesheet")
+                    .layout(&self.palette.bind_group_layout)
+                    .texture_view(&texture.view)
+                    .texture_view(&palette.view)
+                    .build(engine),
+            }
 
-        } else if is_grayscale {
-            builders::BindGroup::builder()
-                .label("Spritesheet")
-                .layout(&self.grayscale.bind_group_layout)
-                .texture_view(&texture.view)
-                .build(engine)
+        } else if texture.texture.format() == GrayscaleImage::FORMAT {
+            SpritesheetState {
+                locations,
+                extra: SpritesheetExtra::Text {
+                    texts: InstanceVec::new(),
+                },
+                bind_group: builders::BindGroup::builder()
+                    .label("Spritesheet")
+                    .layout(&self.text.bind_group_layout)
+                    .texture_view(&texture.view)
+                    .build(engine),
+            }
 
         } else {
             assert_eq!(texture.texture.format(), RgbaImage::FORMAT, "texture must be an RgbaImage");
 
-            builders::BindGroup::builder()
-                .label("Spritesheet")
-                .layout(&self.normal.bind_group_layout)
-                .texture_view(&texture.view)
-                .build(engine)
-        };
-
-        let palettes = if palette.is_some() {
-            Some(InstanceVec::new())
-
-        } else {
-            None
-        };
-
-        SpritesheetState {
-            locations: InstanceVec::new(),
-            palettes,
-            bind_group,
-            has_palette: palette.is_some(),
-            is_grayscale,
+            SpritesheetState {
+                locations,
+                extra: SpritesheetExtra::Normal,
+                bind_group: builders::BindGroup::builder()
+                    .label("Spritesheet")
+                    .layout(&self.normal.bind_group_layout)
+                    .texture_view(&texture.view)
+                    .build(engine),
+            }
         }
     }
 
@@ -463,8 +500,14 @@ impl SpriteRenderer {
         for (_, sheet) in self.spritesheets.iter_mut() {
             sheet.locations.clear();
 
-            if let Some(palettes) = sheet.palettes.as_mut() {
-                palettes.clear();
+            match sheet.extra {
+                SpritesheetExtra::Normal => {},
+                SpritesheetExtra::Palette { ref mut palettes } => {
+                    palettes.clear();
+                },
+                SpritesheetExtra::Text { ref mut texts } => {
+                    texts.clear();
+                },
             }
         }
     }
@@ -484,27 +527,31 @@ impl SpriteRenderer {
                         &sheet.bind_group,
                     ];
 
+                    let pipeline = match sheet.extra {
+                        SpritesheetExtra::Normal => &self.normal.pipeline,
+                        SpritesheetExtra::Palette { .. } => &self.palette.pipeline,
+                        SpritesheetExtra::Text { .. } => &self.text.pipeline,
+                    };
+
                     let slices = vec![
                         sheet.locations.update_buffer(engine, &InstanceVecOptions {
                             label: Some("Sprite Instance Buffer"),
                         }),
 
-                        sheet.palettes.as_mut().and_then(|palettes| {
-                            palettes.update_buffer(engine, &InstanceVecOptions {
-                                label: Some("Sprite Palettes Buffer"),
-                            })
-                        }),
+                        match sheet.extra {
+                            SpritesheetExtra::Normal => None,
+                            SpritesheetExtra::Palette { ref mut palettes } => {
+                                palettes.update_buffer(engine, &InstanceVecOptions {
+                                    label: Some("Sprite Palettes Buffer"),
+                                })
+                            },
+                            SpritesheetExtra::Text { ref mut texts } => {
+                                texts.update_buffer(engine, &InstanceVecOptions {
+                                    label: Some("Sprite Texts Buffer"),
+                                })
+                            },
+                        }
                     ];
-
-                    let pipeline = if sheet.has_palette {
-                        &self.palette.pipeline
-
-                    } else if sheet.is_grayscale {
-                        &self.grayscale.pipeline
-
-                    } else {
-                        &self.normal.pipeline
-                    };
 
                     SpritesheetPrerender {
                         pipeline,
