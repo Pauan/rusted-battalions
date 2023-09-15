@@ -24,7 +24,10 @@ pub use row::{Row, RowBuilder};
 pub use column::{Column, ColumnBuilder};
 pub use stack::{Stack, StackBuilder};
 pub use wrap::{Wrap, WrapBuilder};
-pub use bitmap_text::{BitmapText, BitmapTextBuilder, BitmapFont, BitmapFontSettings, ColorRgb, CharSize};
+pub use bitmap_text::{
+    BitmapText, BitmapTextBuilder, BitmapFont, BitmapFontSettings,
+    BitmapFontSupported, ColorRgb, CharSize,
+};
 
 
 /// f32 from 0.0 to 1.0

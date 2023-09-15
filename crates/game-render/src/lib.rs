@@ -12,7 +12,7 @@ use rusted_battalions_engine as engine;
 use rusted_battalions_engine::{
     Engine, EngineSettings, Spritesheet, SpritesheetSettings, RgbaImage,
     GrayscaleImage, IndexedImage, Texture, Node, BitmapFont,
-    CharSize, ColorRgb, BitmapText, BitmapFontSettings,
+    CharSize, ColorRgb, BitmapText, BitmapFontSettings, BitmapFontSupported,
 };
 
 use crate::util::future::executor;
@@ -143,7 +143,7 @@ impl Game {
                 })
 
                 .child(BitmapText::builder()
-                    .text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello there world.\nHow's it going.\nT\u{031A}e\u{0303}s\u{0309}t\u{0310}i\u{1AB4}n\u{20DD}g".into())
+                    .text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello there world.\nHow's it going.\nT\u{031A}e\u{0303}s\u{0309}t\u{0310}i\u{1AB4}n\u{20DD}g  o\u{0489}\n\u{0000}\u{0000}\u{0000}\u{0000}T\u{0000}e\u{0000}s\u{0000}t\u{0000}i\u{0000}n\u{0000}g".into())
                     .font(this.fonts.unifont.clone())
                     .char_size(CharSize {
                         width: engine::Length::Px(32),
@@ -322,7 +322,7 @@ impl Game {
             });
         }*/
 
-        {
+        /*{
             let unison_font = GrayscaleImage::from_bytes(
                 "unison_font",
                 include_bytes!("../../../dist/fonts/unison.png"),
@@ -338,12 +338,13 @@ impl Game {
                 tile_width: 4,
                 tile_height: 16,
             });
-        }
+        }*/
 
+        #[cfg(feature = "unicode")]
         {
             let image = GrayscaleImage::from_bytes(
-                "unifont",
-                include_bytes!("../../../dist/fonts/unifont.png"),
+                "unifont_bmp",
+                include_bytes!("../../../dist/fonts/unifont_bmp.png"),
             );
 
             let texture = Texture::new();
@@ -352,7 +353,36 @@ impl Game {
 
             self.fonts.unifont.load(&mut engine, BitmapFontSettings {
                 texture: &texture,
+                supported: BitmapFontSupported {
+                    start: '\u{0000}',
+                    end: '\u{FFFD}',
+                    replace: '\u{FFFD}',
+                },
                 columns: 256,
+                tile_width: 8,
+                tile_height: 16,
+            });
+        }
+
+        #[cfg(not(feature = "unicode"))]
+        {
+            let image = GrayscaleImage::from_bytes(
+                "unifont_ascii",
+                include_bytes!("../../../dist/fonts/unifont_ascii.png"),
+            );
+
+            let texture = Texture::new();
+
+            texture.load(&mut engine, &image);
+
+            self.fonts.unifont.load(&mut engine, BitmapFontSettings {
+                texture: &texture,
+                supported: BitmapFontSupported {
+                    start: '\u{0000}',
+                    end: '\u{007F}',
+                    replace: '\u{001A}',
+                },
+                columns: 16,
                 tile_width: 8,
                 tile_height: 16,
             });

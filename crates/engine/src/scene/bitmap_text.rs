@@ -193,15 +193,19 @@ impl NodeLayout for BitmapText {
                 for grapheme in unicode::graphemes(line) {
                     // TODO figure out a way to avoid iterating over the characters twice
                     let unicode_width = grapheme.chars()
+                        .map(|c| font.supported.replace(c))
                         .map(unicode::char_width)
                         .max();
 
-                    if let Some(mut unicode_width) = unicode_width {
-                        if unicode_width == 0 {
-                            unicode_width = 2;
-                        }
+                    if let Some(unicode_width) = unicode_width {
+                        let unicode_display_width = if unicode_width == 0 {
+                            2
 
-                        let max_char_width = (unicode_width as f32) * char_width;
+                        } else {
+                            unicode_width
+                        };
+
+                        let max_char_width = (unicode_display_width as f32) * char_width;
 
                         width += max_char_width;
 
@@ -214,11 +218,18 @@ impl NodeLayout for BitmapText {
                         char_space.size = [2.0 * char_width, char_height];
 
                         for c in grapheme.chars() {
+                            let c = font.supported.replace(c);
+
+                            let mut char_space = char_space;
+
+                            char_space.position[0] += unicode::char_offset(c, unicode_width) * char_width;
+
                             let mut gpu_sprite = GPUSprite::default();
                             let mut gpu_char = GPUChar::default();
 
                             gpu_sprite.update(&char_space);
 
+                            // Always display the full width tile
                             let tile = font.tile(c, 2);
                             gpu_sprite.tile = [tile.start_x, tile.start_y, tile.end_x, tile.end_y];
 
@@ -254,6 +265,7 @@ struct BitmapFontState {
     columns: u32,
     tile_width: u32,
     tile_height: u32,
+    supported: BitmapFontSupported,
     sprites: InstanceVec<GPUSprite>,
     chars: InstanceVec<GPUChar>,
     bind_group: wgpu::BindGroup,
@@ -327,6 +339,7 @@ impl BitmapTextRenderer {
             columns: settings.columns,
             tile_width: settings.tile_width,
             tile_height: settings.tile_height,
+            supported: settings.supported,
             sprites: InstanceVec::new(),
             chars: InstanceVec::new(),
             bind_group: builders::BindGroup::builder()
@@ -393,8 +406,27 @@ impl BitmapTextRenderer {
 }
 
 
+pub struct BitmapFontSupported {
+    pub start: char,
+    pub end: char,
+    pub replace: char,
+}
+
+impl BitmapFontSupported {
+    fn replace(&self, c: char) -> char {
+        if c < self.start || c > self.end {
+            self.replace
+
+        } else {
+            c
+        }
+    }
+}
+
+
 pub struct BitmapFontSettings<'a> {
     pub texture: &'a Texture,
+    pub supported: BitmapFontSupported,
     pub columns: u32,
     pub tile_width: u32,
     pub tile_height: u32,
