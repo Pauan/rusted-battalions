@@ -120,13 +120,19 @@ impl NodeLayout for Wrap {
                 for child in row.children.iter() {
                     child_space.size[0] = child.width;
 
+                    let max_z_index = info.renderer.get_max_z_index();
+
+                    assert!(max_z_index >= this_space.z_index);
+
+                    child_space.z_index = max_z_index;
+
                     child.handle.lock().update_layout(&child.handle, &child_space, info);
 
-                    child_space.position[0] += child.width;
+                    child_space.move_right(child.width);
                 }
 
                 child_space.position[0] = this_space.position[0];
-                child_space.position[1] += row.height;
+                child_space.move_down(row.height);
             }
         }
 

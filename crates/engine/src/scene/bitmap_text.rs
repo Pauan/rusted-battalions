@@ -212,7 +212,7 @@ impl NodeLayout for BitmapText {
                         if width > max_char_width && width > max_width {
                             width = max_char_width;
                             char_space.position[0] = this_space.position[0];
-                            char_space.position[1] += line_height;
+                            char_space.move_down(line_height);
                         }
 
                         char_space.size = [2.0 * char_width, char_height];
@@ -222,7 +222,7 @@ impl NodeLayout for BitmapText {
 
                             let mut char_space = char_space;
 
-                            char_space.position[0] += unicode::char_offset(c, unicode_width) * char_width;
+                            char_space.move_right(unicode::char_offset(c, unicode_width) * char_width);
 
                             let mut gpu_sprite = GPUSprite::default();
                             let mut gpu_char = GPUChar::default();
@@ -244,7 +244,7 @@ impl NodeLayout for BitmapText {
                 }
 
                 char_space.position[0] = this_space.position[0];
-                char_space.position[1] += line_height;
+                char_space.move_down(line_height);
             }
 
             info.renderer.set_max_z_index(self.z_index);

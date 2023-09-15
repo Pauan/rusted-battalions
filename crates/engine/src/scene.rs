@@ -712,6 +712,11 @@ impl SceneRenderer {
         }
     }
 
+    #[inline]
+    pub(crate) fn get_max_z_index(&self) -> f32 {
+        self.scene_uniform.max_z_index
+    }
+
     pub(crate) fn set_max_z_index(&mut self, z_index: f32) {
         self.scene_uniform.max_z_index = self.scene_uniform.max_z_index.max(z_index);
     }

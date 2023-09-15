@@ -163,11 +163,15 @@ impl NodeLayout for Row {
             let mut lock = child.lock();
 
             if lock.is_visible() {
+                let max_z_index = info.renderer.get_max_z_index();
+
+                assert!(max_z_index >= this_space.z_index);
+
                 let child_space = if lock.is_stretch() {
                     ScreenSpace {
                         position: this_space.position,
                         size: [stretch_width, this_space.size[1]],
-                        z_index: this_space.z_index,
+                        z_index: max_z_index,
                     }
 
                 } else {
@@ -176,7 +180,7 @@ impl NodeLayout for Row {
                     ScreenSpace {
                         position: this_space.position,
                         size: [child_size.width, this_space.size[1]],
-                        z_index: this_space.z_index,
+                        z_index: max_z_index,
                     }
                 };
 

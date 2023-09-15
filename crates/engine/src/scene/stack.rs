@@ -110,12 +110,18 @@ impl NodeLayout for Stack {
     }
 
     fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &ScreenSpace, info: &mut SceneLayoutInfo<'a>) {
-        let this_space = parent.modify(&self.location, &info.screen_size);
+        let mut this_space = parent.modify(&self.location, &info.screen_size);
 
         for child in self.children.iter() {
             let mut lock = child.lock();
 
             if lock.is_visible() {
+                let max_z_index = info.renderer.get_max_z_index();
+
+                assert!(max_z_index >= this_space.z_index);
+
+                this_space.z_index = max_z_index;
+
                 lock.update_layout(child, &this_space, info);
             }
         }

@@ -135,10 +135,9 @@ impl Game {
             })))
 
             .child(engine::Stack::builder()
-                .z_index(9000.0)
-
                 .size(engine::Size {
-                    width: engine::Length::Screen(0.39),
+                    width: engine::Length::Parent(1.0),
+                    //width: engine::Length::Px(832),
                     height: engine::Length::Parent(1.0),
                 })
 
