@@ -15,6 +15,7 @@ mod row;
 mod column;
 mod stack;
 mod wrap;
+mod grid;
 mod bitmap_text;
 
 //pub use border_grid::{BorderGrid, BorderGridBuilder, BorderSize, Quadrants};
@@ -24,6 +25,7 @@ pub use row::{Row, RowBuilder};
 pub use column::{Column, ColumnBuilder};
 pub use stack::{Stack, StackBuilder};
 pub use wrap::{Wrap, WrapBuilder};
+pub use grid::{Grid, GridBuilder, GridSize};
 pub use bitmap_text::{
     BitmapText, BitmapTextBuilder, BitmapFont, BitmapFontSettings,
     BitmapFontSupported, ColorRgb, CharSize,
