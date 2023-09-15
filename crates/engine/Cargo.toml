@@ -11,6 +11,7 @@ edition = "2021"
 [features]
 thread-safe = []
 webgl = ["wgpu/webgl"]
+unicode = ["unicode-width", "unicode-segmentation"]
 
 [dependencies]
 raw-window-handle = "0.5.2"
@@ -20,6 +21,14 @@ futures = "0.3.28"
 
 # TODO remove this
 log = "0.4.20"
+
+[dependencies.unicode-width]
+version = "0.1.10"
+optional = true
+
+[dependencies.unicode-segmentation]
+version = "1.10.1"
+optional = true
 
 [dependencies.image]
 version = "0.24.7"

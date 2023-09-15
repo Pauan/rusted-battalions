@@ -4,6 +4,7 @@ use crate::scene::{NodeHandle, NodeLayout};
 pub(crate) mod builders;
 pub(crate) mod buffer;
 pub(crate) mod macros;
+pub(crate) mod unicode;
 
 
 pub(crate) trait IsAtomic {

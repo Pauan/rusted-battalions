@@ -10,6 +10,7 @@ edition = "2021"
 
 [features]
 webgl = ["rusted-battalions-engine/webgl"]
+unicode = ["rusted-battalions-engine/unicode"]
 
 [dependencies]
 raw-window-handle = "0.5.2"

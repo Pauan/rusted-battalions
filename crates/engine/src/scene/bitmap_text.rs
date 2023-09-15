@@ -4,6 +4,7 @@ use bytemuck::{Pod, Zeroable};
 use futures_signals::signal::{Signal, SignalExt};
 
 use crate::{Engine, Handle};
+use crate::util::unicode;
 use crate::util::macros::wgsl;
 use crate::util::buffer::{Uniform, InstanceVec, InstanceVecOptions, GrayscaleImage, TextureBuffer};
 use crate::util::builders;
@@ -186,34 +187,49 @@ impl NodeLayout for BitmapText {
 
             let mut char_space = this_space;
 
-            char_space.size = [char_width, char_height];
-
             for line in self.text.lines() {
                 let mut width = 0.0;
 
-                for c in line.chars() {
-                    width += char_width;
+                for grapheme in unicode::graphemes(line) {
+                    // TODO figure out a way to avoid iterating over the characters twice
+                    let unicode_width = grapheme.chars()
+                        .map(unicode::char_width)
+                        .max();
 
-                    if width > char_width && width > max_width {
-                        width = char_width;
-                        char_space.position[0] = this_space.position[0];
-                        char_space.position[1] += line_height;
+                    if let Some(mut unicode_width) = unicode_width {
+                        if unicode_width == 0 {
+                            unicode_width = 2;
+                        }
+
+                        let max_char_width = (unicode_width as f32) * char_width;
+
+                        width += max_char_width;
+
+                        if width > max_char_width && width > max_width {
+                            width = max_char_width;
+                            char_space.position[0] = this_space.position[0];
+                            char_space.position[1] += line_height;
+                        }
+
+                        char_space.size = [2.0 * char_width, char_height];
+
+                        for c in grapheme.chars() {
+                            let mut gpu_sprite = GPUSprite::default();
+                            let mut gpu_char = GPUChar::default();
+
+                            gpu_sprite.update(&char_space);
+
+                            let tile = font.tile(c, 2);
+                            gpu_sprite.tile = [tile.start_x, tile.start_y, tile.end_x, tile.end_y];
+
+                            gpu_char.color = [self.text_color.r, self.text_color.g, self.text_color.b];
+
+                            font.sprites.push(gpu_sprite);
+                            font.chars.push(gpu_char);
+                        }
+
+                        char_space.position[0] = width;
                     }
-
-                    let mut gpu_sprite = GPUSprite::default();
-                    let mut gpu_char = GPUChar::default();
-
-                    gpu_sprite.update(&char_space);
-
-                    let tile = font.tile(c);
-                    gpu_sprite.tile = [tile.start_x, tile.start_y, tile.end_x, tile.end_y];
-
-                    gpu_char.color = [self.text_color.r, self.text_color.g, self.text_color.b];
-
-                    font.sprites.push(gpu_sprite);
-                    font.chars.push(gpu_char);
-
-                    char_space.position[0] = width;
                 }
 
                 char_space.position[0] = this_space.position[0];
@@ -244,19 +260,19 @@ struct BitmapFontState {
 }
 
 impl BitmapFontState {
-    fn tile(&self, c: char) -> Tile {
+    fn tile(&self, c: char, width: u32) -> Tile {
         let index = c as u32;
 
         let row = index / self.columns;
         let column = index - (row * self.columns);
 
-        let start_x = column * self.tile_width;
+        let start_x = column * (self.tile_width * 2);
         let start_y = row * self.tile_height;
 
         Tile {
             start_x,
             start_y,
-            end_x: start_x + self.tile_width,
+            end_x: start_x + (self.tile_width * width),
             end_y: start_y + self.tile_height,
         }
     }

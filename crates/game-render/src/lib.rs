@@ -143,8 +143,8 @@ impl Game {
                 })
 
                 .child(BitmapText::builder()
-                    .text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello there world.\nHow's it going.".into())
-                    .font(this.fonts.unison.clone())
+                    .text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello there world.\nHow's it going.\nT\u{031A}e\u{0303}s\u{0309}t\u{0310}i\u{1AB4}n\u{20DD}g".into())
+                    .font(this.fonts.unifont.clone())
                     .char_size(CharSize {
                         width: engine::Length::Px(32),
                         height: engine::Length::Px(64),
@@ -335,7 +335,7 @@ impl Game {
             self.fonts.unison.load(&mut engine, BitmapFontSettings {
                 texture: &texture,
                 columns: 64,
-                tile_width: 8,
+                tile_width: 4,
                 tile_height: 16,
             });
         }
@@ -353,7 +353,7 @@ impl Game {
             self.fonts.unifont.load(&mut engine, BitmapFontSettings {
                 texture: &texture,
                 columns: 256,
-                tile_width: 16,
+                tile_width: 8,
                 tile_height: 16,
             });
         }

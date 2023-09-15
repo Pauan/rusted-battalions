@@ -101,7 +101,14 @@ impl RgbaImage {
     }
 
     pub fn from_bytes(label: &'static str, bytes: &[u8]) -> Self {
-        let image = image::load_from_memory(bytes).unwrap().into_rgba8();
+        let image = image::load_from_memory(bytes).unwrap();
+
+        let image = if image.as_rgba8().is_some() {
+            image.into_rgba8()
+
+        } else {
+            panic!("RgbaImage {} must have red + green + blue + alpha channels", label);
+        };
 
         Self { label, image }
     }
@@ -149,7 +156,14 @@ impl IndexedImage {
     }
 
     pub fn from_bytes(label: &'static str, bytes: &[u8]) -> Self {
-        let image = image::load_from_memory(bytes).unwrap().into_luma_alpha8();
+        let image = image::load_from_memory(bytes).unwrap();
+
+        let image = if image.as_luma_alpha8().is_some() {
+            image.into_luma_alpha8()
+
+        } else {
+            panic!("IndexedImage {} must have only gray + alpha channels", label);
+        };
 
         Self { label, image }
     }
@@ -197,7 +211,14 @@ impl GrayscaleImage {
     }
 
     pub fn from_bytes(label: &'static str, bytes: &[u8]) -> Self {
-        let image = image::load_from_memory(bytes).unwrap().into_luma8();
+        let image = image::load_from_memory(bytes).unwrap();
+
+        let image = if image.as_luma8().is_some() {
+            image.into_luma8()
+
+        } else {
+            panic!("GrayscaleImage {} must have only gray channel", label);
+        };
 
         Self { label, image }
     }
