@@ -3,7 +3,7 @@ use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
     NodeHandle, MinSize, Location, Origin, Size, Offset, Percentage, Padding,
-    ScreenSpace, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
+    ScreenSpace, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
 };
 
 
@@ -155,7 +155,7 @@ impl NodeLayout for Column {
 
         let mut this_space = parent.modify(&self.location, &info.screen_size);
 
-        let empty_space = (this_space.size[1] - self.min_height).max(0.0);
+        let empty_space = (this_space.size.height - self.min_height).max(0.0);
 
         let stretch_height = empty_space / (self.stretch_children as f32);
 
@@ -170,7 +170,10 @@ impl NodeLayout for Column {
                 let child_space = if lock.is_stretch() {
                     ScreenSpace {
                         position: this_space.position,
-                        size: [this_space.size[0], stretch_height],
+                        size: RealSize {
+                            width: this_space.size.width,
+                            height: stretch_height,
+                        },
                         z_index: max_z_index,
                     }
 
@@ -179,14 +182,17 @@ impl NodeLayout for Column {
 
                     ScreenSpace {
                         position: this_space.position,
-                        size: [this_space.size[0], child_size.height],
+                        size: RealSize {
+                            width: this_space.size.width,
+                            height: child_size.height,
+                        },
                         z_index: max_z_index,
                     }
                 };
 
                 lock.update_layout(child, &child_space, info);
 
-                this_space.move_down(child_space.size[1]);
+                this_space.move_down(child_space.size.height);
             }
         }
 

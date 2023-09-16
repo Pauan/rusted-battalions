@@ -3,7 +3,7 @@ use futures_signals::map_ref;
 use futures_signals::signal::{Mutable, Signal, SignalExt};
 use dominator::clone;
 use rusted_battalions_engine as engine;
-use rusted_battalions_engine::{Node, Length, Size, Offset, Tile};
+use rusted_battalions_engine::{Node, Size, Offset, Tile, ParentWidth, ParentHeight};
 
 use crate::Game;
 use crate::grid::{UNIT_ANIMATION_TIME, Grid, Coord, Nation};
@@ -240,14 +240,14 @@ impl Unit {
                 let (x, y) = grid.tile_offset(coord);
 
                 Offset {
-                    x: Length::Parent(x - (grid.width * 0.5)),
-                    y: Length::Parent(y - grid.height),
+                    x: ParentWidth(x - (grid.width * 0.5)),
+                    y: ParentHeight(y - grid.height),
                 }
             })))
 
             .size(Size {
-                width: Length::Parent(grid.width * 2.0),
-                height: Length::Parent(grid.height * 2.0),
+                width: ParentWidth(grid.width * 2.0),
+                height: ParentHeight(grid.height * 2.0),
             })
 
             .z_index_signal(this.coord.signal_ref(clone!(grid => move |coord| {

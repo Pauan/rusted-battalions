@@ -14,7 +14,7 @@ use crate::scene::{
     NodeHandle, MinSize, Location, Origin, Size, Offset, Padding,
     ScreenSpace, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
     Length, Percentage, Handles, Prerender, Texture, SceneUniform,
-    ScenePrerender,
+    ScenePrerender, RealSize, ScreenSize,
 };
 
 
@@ -30,6 +30,18 @@ pub struct ColorRgb {
 pub struct CharSize {
     pub width: Length,
     pub height: Length,
+}
+
+impl CharSize {
+    fn to_screen_space(&self, parent: RealSize, screen_size: &ScreenSize) -> RealSize {
+        let screen_width = screen_size.to_real_width();
+        let screen_height = screen_size.to_real_height();
+
+        RealSize {
+            width: self.width.to_screen_space(parent, screen_width, screen_size.width),
+            height: self.height.to_screen_space(parent, screen_height, screen_size.height),
+        }
+    }
 }
 
 
@@ -76,7 +88,7 @@ impl BitmapText {
 
             text: "".into(),
             text_color: ColorRgb::default(),
-            line_spacing: Length::Parent(0.0),
+            line_spacing: Length::Zero,
 
             z_index: 0.0,
             min_size: None,
@@ -140,7 +152,7 @@ impl BitmapTextBuilder {
     simple_method!(
         /// Sets the spacing between each line of text.
         ///
-        /// Defaults to `Length::Parent(0.0)` (no spacing).
+        /// Defaults to [`Length::Zero`] (no spacing).
         line_spacing,
         line_spacing_signal,
         true,
@@ -177,13 +189,17 @@ impl NodeLayout for BitmapText {
 
             self.z_index = this_space.z_index;
 
-            let char_width = char_size.width.to_screen_space(this_space.size[0], info.screen_size.width);
-            let char_height = char_size.height.to_screen_space(this_space.size[1], info.screen_size.height);
-            let line_spacing = self.line_spacing.to_screen_space(this_space.size[1], info.screen_size.height);
+            let char_size = char_size.to_screen_space(this_space.size, &info.screen_size);
 
-            let line_height = char_height + line_spacing;
+            let line_spacing = self.line_spacing.to_screen_space(
+                this_space.size,
+                info.screen_size.to_real_height(),
+                info.screen_size.height,
+            );
 
-            let max_width = this_space.size[0];
+            let line_height = char_size.height + line_spacing;
+
+            let max_width = this_space.size.width;
 
             let mut char_space = this_space;
 
@@ -205,24 +221,27 @@ impl NodeLayout for BitmapText {
                             unicode_width
                         };
 
-                        let max_char_width = (unicode_display_width as f32) * char_width;
+                        let max_char_width = (unicode_display_width as f32) * char_size.width;
 
                         width += max_char_width;
 
                         if width > max_char_width && width > max_width {
                             width = max_char_width;
-                            char_space.position[0] = this_space.position[0];
+                            char_space.position.x = this_space.position.x;
                             char_space.move_down(line_height);
                         }
 
-                        char_space.size = [2.0 * char_width, char_height];
+                        char_space.size = RealSize {
+                            width: 2.0 * char_size.width,
+                            height: char_size.height,
+                        };
 
                         for c in grapheme.chars() {
                             let c = font.supported.replace(c);
 
                             let mut char_space = char_space;
 
-                            char_space.move_right(unicode::char_offset(c, unicode_width) * char_width);
+                            char_space.move_right(unicode::char_offset(c, unicode_width) * char_size.width);
 
                             let mut gpu_sprite = GPUSprite::default();
                             let mut gpu_char = GPUChar::default();
@@ -239,11 +258,11 @@ impl NodeLayout for BitmapText {
                             font.chars.push(gpu_char);
                         }
 
-                        char_space.position[0] = this_space.position[0] + width;
+                        char_space.position.x = this_space.position.x + width;
                     }
                 }
 
-                char_space.position[0] = this_space.position[0];
+                char_space.position.x = this_space.position.x;
                 char_space.move_down(line_height);
             }
 

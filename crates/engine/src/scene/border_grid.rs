@@ -3,6 +3,7 @@ use crate::scene::builder::{Node, make_builder, base_methods, location_methods, 
 use crate::scene::{
     NodeHandle, MinSize, Location, Origin, Size, Offset, Padding, Length,
     ScreenSpace, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize,
+    RealSize, RealPosition,
 };
 
 
@@ -25,9 +26,16 @@ impl BorderSize {
     }
 
     fn min_size(&self, screen_size: &ScreenSize) -> MinSize {
+        let screen_width = screen_size.to_real_width();
+        let screen_height = screen_size.to_real_height();
+
         MinSize {
-            width: self.left.min_length(screen_size.width) + self.right.min_length(screen_size.width),
-            height: self.up.min_length(screen_size.height) + self.down.min_length(screen_size.height),
+            width:
+                self.left.min_length(screen_width, screen_size.width) +
+                self.right.min_length(screen_width, screen_size.width),
+            height:
+                self.up.min_length(screen_height, screen_size.height) +
+                self.down.min_length(screen_height, screen_size.height),
         }
     }
 }
@@ -211,77 +219,134 @@ impl NodeLayout for BorderGrid {
 
         let this_space = parent.modify(&self.location, &info.screen_size);
 
-        let size_left = border_size.left.to_screen_space(this_space.size[0], info.screen_size.width);
-        let size_right = border_size.right.to_screen_space(this_space.size[0], info.screen_size.width);
-        let size_up = border_size.up.to_screen_space(this_space.size[1], info.screen_size.height);
-        let size_down = border_size.down.to_screen_space(this_space.size[1], info.screen_size.height);
+        let screen_width = info.screen_size.to_real_width();
+        let screen_height = info.screen_size.to_real_height();
 
-        let position_left = this_space.position[0];
-        let position_right = position_left + (this_space.size[0] - size_right).max(0.0);
+        let size_left = border_size.left.to_screen_space(this_space.size, screen_width, info.screen_size.width);
+        let size_right = border_size.right.to_screen_space(this_space.size, screen_width, info.screen_size.width);
+        let size_up = border_size.up.to_screen_space(this_space.size, screen_height, info.screen_size.height);
+        let size_down = border_size.down.to_screen_space(this_space.size, screen_height, info.screen_size.height);
 
-        let position_up = this_space.position[1];
-        let position_down = position_up + (this_space.size[1] - size_down).max(0.0);
+        let position_left = this_space.position.x;
+        let position_right = position_left + (this_space.size.width - size_right).max(0.0);
 
-        let center_width = (this_space.size[0] - size_left - size_right).max(0.0);
-        let center_height = (this_space.size[1] - size_up - size_down).max(0.0);
+        let position_up = this_space.position.y;
+        let position_down = position_up + (this_space.size.height - size_down).max(0.0);
+
+        let center_width = (this_space.size.width - size_left - size_right).max(0.0);
+        let center_height = (this_space.size.height - size_up - size_down).max(0.0);
 
         let center_left = position_left + size_left;
         let center_up = position_up + size_up;
 
 
         Self::update_child(&quadrants.up_left, info, &ScreenSpace {
-            position: [position_left, position_up],
-            size: [size_left, size_up],
+            position: RealPosition {
+                x: position_left,
+                y: position_up,
+            },
+            size: RealSize {
+                width: size_left,
+                height: size_up,
+            },
             z_index: info.renderer.get_max_z_index(),
         });
 
         Self::update_child(&quadrants.up, info, &ScreenSpace {
-            position: [center_left, position_up],
-            size: [center_width, size_up],
+            position: RealPosition {
+                x: center_left,
+                y: position_up,
+            },
+            size: RealSize {
+                width: center_width,
+                height: size_up,
+            },
             z_index: info.renderer.get_max_z_index(),
         });
 
         Self::update_child(&quadrants.up_right, info, &ScreenSpace {
-            position: [position_right, position_up],
-            size: [size_right, size_up],
+            position: RealPosition {
+                x: position_right,
+                y: position_up,
+            },
+            size: RealSize {
+                width: size_right,
+                height: size_up,
+            },
             z_index: info.renderer.get_max_z_index(),
         });
 
 
         Self::update_child(&quadrants.left, info, &ScreenSpace {
-            position: [position_left, center_up],
-            size: [size_left, center_height],
+            position: RealPosition {
+                x: position_left,
+                y: center_up,
+            },
+            size: RealSize {
+                width: size_left,
+                height: center_height,
+            },
             z_index: info.renderer.get_max_z_index(),
         });
 
         Self::update_child(&quadrants.center, info, &ScreenSpace {
-            position: [center_left, center_up],
-            size: [center_width, center_height],
+            position: RealPosition {
+                x: center_left,
+                y: center_up,
+            },
+            size: RealSize {
+                width: center_width,
+                height: center_height,
+            },
             z_index: info.renderer.get_max_z_index(),
         });
 
         Self::update_child(&quadrants.right, info, &ScreenSpace {
-            position: [position_right, center_up],
-            size: [size_right, center_height],
+            position: RealPosition {
+                x: position_right,
+                y: center_up,
+            },
+            size: RealSize {
+                width: size_right,
+                height: center_height,
+            },
             z_index: info.renderer.get_max_z_index(),
         });
 
 
         Self::update_child(&quadrants.down_left, info, &ScreenSpace {
-            position: [position_left, position_down],
-            size: [size_left, size_down],
+            position: RealPosition {
+                x: position_left,
+                y: position_down,
+            },
+            size: RealSize {
+                width: size_left,
+                height: size_down,
+            },
             z_index: info.renderer.get_max_z_index(),
         });
 
         Self::update_child(&quadrants.down, info, &ScreenSpace {
-            position: [center_left, position_down],
-            size: [center_width, size_down],
+            position: RealPosition {
+                x: center_left,
+                y: position_down,
+            },
+            size: RealSize {
+                width: center_width,
+                height: size_down,
+            },
             z_index: info.renderer.get_max_z_index(),
         });
 
         Self::update_child(&quadrants.down_right, info, &ScreenSpace {
-            position: [position_right, position_down],
-            size: [size_right, size_down],
+            position: RealPosition {
+                x: position_right,
+                y: position_down,
+            },
+            size: RealSize {
+                width: size_right,
+                height: size_down,
+            },
             z_index: info.renderer.get_max_z_index(),
         });
 

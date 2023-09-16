@@ -77,7 +77,7 @@ impl NodeLayout for Wrap {
         let this_space = parent.modify(&self.location, &info.screen_size);
 
         {
-            let max_width = this_space.size[0];
+            let max_width = this_space.size.width;
 
             let mut width = 0.0;
             let mut row = Row::new();
@@ -88,14 +88,14 @@ impl NodeLayout for Wrap {
                 if lock.is_visible() {
                     let size = lock.min_size(info);
 
-                    if (width + size.width) > max_width {
+                    width += size.width;
+
+                    if width > size.width && width > max_width {
                         self.rows.push(row);
 
-                        width = 0.0;
+                        width = size.width;
                         row = Row::new();
                     }
-
-                    width += size.width;
 
                     row.height = row.height.max(size.height);
 
@@ -115,10 +115,10 @@ impl NodeLayout for Wrap {
             let mut child_space = this_space;
 
             for row in self.rows.iter() {
-                child_space.size[1] = row.height;
+                child_space.size.height = row.height;
 
                 for child in row.children.iter() {
-                    child_space.size[0] = child.width;
+                    child_space.size.width = child.width;
 
                     let max_z_index = info.renderer.get_max_z_index();
 
@@ -131,7 +131,7 @@ impl NodeLayout for Wrap {
                     child_space.move_right(child.width);
                 }
 
-                child_space.position[0] = this_space.position[0];
+                child_space.position.x = this_space.position.x;
                 child_space.move_down(row.height);
             }
         }

@@ -63,15 +63,15 @@ impl GPUSprite {
         let space = space.convert_to_wgpu_coordinates();
 
         self.position = [
-            space.position[0],
+            space.position.x,
 
             // The origin point of our sprites is in the upper-left corner,
             // but with wgpu the origin point is in the lower-left corner.
             // So we shift the y position into the lower-left corner of the sprite.
-            space.position[1] - space.size[1],
+            space.position.y - space.size.height,
         ];
 
-        self.size = space.size;
+        self.size = [space.size.width, space.size.height];
         self.z_index = space.z_index;
     }
 }

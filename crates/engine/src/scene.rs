@@ -36,11 +36,27 @@ pub use bitmap_text::{
 pub type Percentage = f32;
 
 
-/// The x / y / width / height in screen space.
+/// x / y in screen space, percentage of the screen size
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RealPosition {
+    pub(crate) x: Percentage,
+    pub(crate) y: Percentage,
+}
+
+
+/// width / height in screen space, percentage of the screen size
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RealSize {
+    pub(crate) width: Percentage,
+    pub(crate) height: Percentage,
+}
+
+
+/// The x / y / width / height / z-index in screen space.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ScreenSpace {
-    pub(crate) position: [Percentage; 2],
-    pub(crate) size: [Percentage; 2],
+    pub(crate) position: RealPosition,
+    pub(crate) size: RealSize,
     pub(crate) z_index: f32,
 }
 
@@ -48,37 +64,46 @@ impl ScreenSpace {
     /// Returns a ScreenSpace that covers the entire screen.
     pub(crate) fn full() -> Self {
          Self {
-            position: [0.0, 0.0],
-            size: [1.0, 1.0],
+            position: RealPosition {
+                x: 0.0,
+                y: 0.0,
+            },
+            size: RealSize {
+                width: 1.0,
+                height: 1.0,
+            },
             z_index: 1.0,
         }
     }
 
     /// Calculates the new screen space position based on the Location.
     pub(crate) fn modify(&self, location: &Location, screen: &ScreenSize) -> Self {
-        let pad_up = location.padding.up.to_screen_space(self.size[1], screen.height);
-        let pad_down = location.padding.down.to_screen_space(self.size[1], screen.height);
-        let pad_left = location.padding.left.to_screen_space(self.size[0], screen.width);
-        let pad_right = location.padding.right.to_screen_space(self.size[0], screen.width);
+        let screen_width = screen.to_real_width();
+        let screen_height = screen.to_real_height();
 
-        let width = location.size.width.to_screen_space(self.size[0], screen.width);
-        let height = location.size.height.to_screen_space(self.size[1], screen.height);
+        let pad_up = location.padding.up.to_screen_space(self.size, screen_height, screen.height);
+        let pad_down = location.padding.down.to_screen_space(self.size, screen_height, screen.height);
+        let pad_left = location.padding.left.to_screen_space(self.size, screen_width, screen.width);
+        let pad_right = location.padding.right.to_screen_space(self.size, screen_width, screen.width);
 
-        let x = location.offset.x.to_screen_space(self.size[0], screen.width);
-        let y = location.offset.y.to_screen_space(self.size[1], screen.height);
+        let width = location.size.width.to_screen_space(self.size, screen_width, screen.width);
+        let height = location.size.height.to_screen_space(self.size, screen_height, screen.height);
 
-        let origin_x = (self.size[0] - width) * location.origin.x;
-        let origin_y = (self.size[1] - height) * location.origin.y;
+        let x = location.offset.x.to_screen_space(self.size, screen_width, screen.width);
+        let y = location.offset.y.to_screen_space(self.size, screen_height, screen.height);
+
+        let origin_x = (self.size.width - width) * location.origin.x;
+        let origin_y = (self.size.height - height) * location.origin.y;
 
         Self {
-            position: [
-                self.position[0] + origin_x + pad_left + x,
-                self.position[1] + origin_y + pad_up + y,
-            ],
-            size: [
-                (width - pad_left - pad_right).max(0.0),
-                (height - pad_up - pad_down).max(0.0),
-            ],
+            position: RealPosition {
+                x: self.position.x + origin_x + pad_left + x,
+                y: self.position.y + origin_y + pad_up + y,
+            },
+            size: RealSize {
+                width: (width - pad_left - pad_right).max(0.0),
+                height: (height - pad_up - pad_down).max(0.0),
+            },
             z_index: self.z_index + location.z_index,
         }
     }
@@ -86,13 +111,13 @@ impl ScreenSpace {
     /// Used by Row to shift the ScreenSpace for each child
     #[inline]
     pub(crate) fn move_right(&mut self, amount: f32) {
-        self.position[0] += amount;
+        self.position.x += amount;
     }
 
     /// Used by Column to shift the ScreenSpace for each child
     #[inline]
     pub(crate) fn move_down(&mut self, amount: f32) {
-        self.position[1] += amount;
+        self.position.y += amount;
     }
 
     /// This method converts from our coordinate system into wgpu's coordinate system.
@@ -114,15 +139,15 @@ impl ScreenSpace {
     ///   [-1 -1    1 -1]
     ///
     pub(crate) fn convert_to_wgpu_coordinates(&self) -> Self {
-        let width  = self.size[0] * 2.0;
-        let height = self.size[1] * 2.0;
+        let width  = self.size.width * 2.0;
+        let height = self.size.height * 2.0;
 
-        let x = (self.position[0] *  2.0) - 1.0;
-        let y = (self.position[1] * -2.0) + 1.0;
+        let x = (self.position.x *  2.0) - 1.0;
+        let y = (self.position.y * -2.0) + 1.0;
 
         Self {
-            position: [x, y],
-            size: [width, height],
+            position: RealPosition { x, y },
+            size: RealSize { width, height },
             z_index: self.z_index,
         }
     }
@@ -200,13 +225,21 @@ impl Padding {
     /// It uses `parent_size` for the parent width / height.
     // TODO should this handle negative padding ?
     pub(crate) fn min_size(&self, parent_size: &MinSize, screen: &ScreenSize) -> MinSize {
+        let screen_width = screen.to_real_width();
+        let screen_height = screen.to_real_height();
+
+        let parent = RealSize {
+            width: parent_size.width,
+            height: parent_size.height,
+        };
+
         let width =
-            self.left.to_screen_space(parent_size.width, screen.width) +
-            self.right.to_screen_space(parent_size.width, screen.width);
+            self.left.to_screen_space(parent, screen_width, screen.width) +
+            self.right.to_screen_space(parent, screen_width, screen.width);
 
         let height =
-            self.up.to_screen_space(parent_size.height, screen.height) +
-            self.down.to_screen_space(parent_size.height, screen.height);
+            self.up.to_screen_space(parent, screen_height, screen.height) +
+            self.down.to_screen_space(parent, screen_height, screen.height);
 
         MinSize { width, height }
     }
@@ -215,64 +248,98 @@ impl Padding {
 impl Default for Padding {
     fn default() -> Self {
         Self {
-            up: Length::Parent(0.0),
-            down: Length::Parent(0.0),
-            left: Length::Parent(0.0),
-            right: Length::Parent(0.0),
+            up: Length::Zero,
+            down: Length::Zero,
+            left: Length::Zero,
+            right: Length::Zero,
         }
     }
 }
 
+
+pub use Length::{Zero, Px, ScreenWidth, ScreenHeight, ParentWidth, ParentHeight};
 
 /// Used for [`Offset`] / [`Size`] / [`Padding`].
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub enum Length {
+    /// Zero length. Useful for [`Offset`] and [`Padding`].
+    ///
+    /// This is fixed, it will always be the same length.
+    Zero,
+
     /// Pixel length.
     ///
     /// This is fixed, it will always be the same length.
     Px(i32),
 
-    /// Percentage of the screen's length.
+    /// Percentage of the screen's width.
     ///
     /// This is fixed, it will always be the same length.
-    Screen(Percentage),
+    ScreenWidth(Percentage),
 
-    /// Percentage of the parent's length.
+    /// Percentage of the screen's height.
     ///
-    /// This will dynamically change if the parent's length changes.
-    Parent(Percentage),
+    /// This is fixed, it will always be the same length.
+    ScreenHeight(Percentage),
+
+    /// Percentage of the parent's width.
+    ///
+    /// This will dynamically change if the parent's width changes.
+    ParentWidth(Percentage),
+
+    /// Percentage of the parent's height.
+    ///
+    /// This will dynamically change if the parent's height changes.
+    ParentHeight(Percentage),
 }
 
 impl Length {
     fn is_fixed(&self) -> bool {
         match self {
+            Self::Zero => true,
             Self::Px(_) => true,
-            Self::Screen(_) => true,
-            Self::Parent(_) => false,
+            Self::ScreenWidth(_) | Self::ScreenHeight(_) => true,
+            Self::ParentWidth(_) | Self::ParentHeight(_) => false,
         }
     }
 
     /// Minimum length in screen space.
     #[inline]
-    fn min_length(&self, screen: Percentage) -> Percentage {
-        self.to_screen_space(0.0, screen)
+    fn min_length(&self, screen: RealSize, pixels: f32) -> Percentage {
+        let parent = RealSize {
+            width: 0.0,
+            height: 0.0,
+        };
+
+        self.to_screen_space(parent, screen, pixels)
     }
 
     /// Converts from local space into screen space.
-    fn to_screen_space(&self, parent: Percentage, screen: Percentage) -> Percentage {
+    fn to_screen_space(&self, parent: RealSize, screen: RealSize, pixels: f32) -> Percentage {
         match self {
-            Self::Screen(x) => *x,
-            Self::Parent(x) => x * parent,
-            Self::Px(x) => *x as Percentage / screen,
+            Self::Zero => 0.0,
+            Self::ScreenWidth(x) => x * screen.width,
+            Self::ScreenHeight(x) => x * screen.height,
+            Self::ParentWidth(x) => x * parent.width,
+            Self::ParentHeight(x) => x * parent.height,
+            Self::Px(x) => *x as Percentage / pixels,
         }
     }
 }
 
+impl Default for Length {
+    /// Returns [`Length::Zero`].
+    #[inline]
+    fn default() -> Self {
+        Self::Zero
+    }
+}
 
-/// Offset x / y (relative to the parent's width / height) which is added to the parent's x / y.
+
+/// Offset x / y (relative to the parent) which is added to the parent's x / y.
 ///
-/// The default is `{ x: Length::Parent(0.0), y: Length::Parent(0.0) }` which means no offset.
+/// The default is `{ x: Zero, y: Zero }` which means no offset.
 #[derive(Debug, Clone, Copy)]
 pub struct Offset {
     pub x: Length,
@@ -283,16 +350,16 @@ impl Default for Offset {
     #[inline]
     fn default() -> Self {
         Self {
-            x: Length::Parent(0.0),
-            y: Length::Parent(0.0),
+            x: Length::Zero,
+            y: Length::Zero,
         }
     }
 }
 
 
-/// Width / height relative to the parent's width / height.
+/// Width / height relative to the parent.
 ///
-/// The default is `{ width: Length::Parent(1.0), height: Length::Parent(1.0) }`
+/// The default is `{ width: ParentWidth(1.0), height: ParentHeight(1.0) }`
 /// which means it's the same size as its parent.
 #[derive(Debug, Clone, Copy)]
 pub struct Size {
@@ -304,8 +371,8 @@ impl Default for Size {
     #[inline]
     fn default() -> Self {
         Self {
-            width: Length::Parent(1.0),
-            height: Length::Parent(1.0),
+            width: Length::ParentWidth(1.0),
+            height: Length::ParentHeight(1.0),
         }
     }
 }
@@ -340,7 +407,7 @@ pub(crate) struct Location {
     /// Offset which is added to the Node's position.
     pub(crate) offset: Offset,
 
-    /// Width / height relative to parent's width / height.
+    /// Width / height relative to the parent.
     pub(crate) size: Size,
 
     /// Empty space in the cardinal directions.
@@ -357,8 +424,11 @@ impl Location {
     // TODO should this take into account the offset and origin as well ?
     // TODO should this take into account negative padding ?
     pub(crate) fn min_size(&self, screen: &ScreenSize) -> MinSize {
-        let width = self.size.width.min_length(screen.width);
-        let height = self.size.height.min_length(screen.height);
+        let screen_width = screen.to_real_width();
+        let screen_height = screen.to_real_height();
+
+        let width = self.size.width.min_length(screen_width, screen.width);
+        let height = self.size.height.min_length(screen_height, screen.height);
 
         MinSize { width, height }
     }
@@ -369,6 +439,28 @@ impl Location {
 pub(crate) struct ScreenSize {
     pub(crate) width: f32,
     pub(crate) height: f32,
+}
+
+impl ScreenSize {
+    /// When calculating the [`Length::ScreenHeight`] it
+    /// needs to scale it based on the ratio of height / width.
+    #[inline]
+    pub(crate) fn to_real_width(&self) -> RealSize {
+        RealSize {
+            width: 1.0,
+            height: self.height / self.width,
+        }
+    }
+
+    /// When calculating the [`Length::ScreenWidth`] it
+    /// needs to scale it based on the ratio of width / height.
+    #[inline]
+    pub(crate) fn to_real_height(&self) -> RealSize {
+        RealSize {
+            width: self.width / self.height,
+            height: 1.0,
+        }
+    }
 }
 
 

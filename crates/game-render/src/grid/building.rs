@@ -2,7 +2,7 @@ use std::sync::Arc;
 use futures_signals::map_ref;
 use futures_signals::signal::{Mutable, Signal, SignalExt};
 use rusted_battalions_engine as engine;
-use rusted_battalions_engine::{Node, Length, Size, Offset, Tile};
+use rusted_battalions_engine::{Node, Size, Offset, Tile, ParentWidth, ParentHeight};
 
 use crate::Game;
 use crate::grid::{BUILDING_ANIMATION_TIME, Grid, Coord, Nation};
@@ -149,13 +149,13 @@ impl Building {
             .z_index(grid.z_index(&this.coord) + 0.25)
 
             .offset(Offset {
-                x: Length::Parent(x),
-                y: Length::Parent(y - grid.height),
+                x: ParentWidth(x),
+                y: ParentHeight(y - grid.height),
             })
 
             .size(Size {
-                width: Length::Parent(grid.width),
-                height: Length::Parent(grid.height * 2.0),
+                width: ParentWidth(grid.width),
+                height: ParentHeight(grid.height * 2.0),
             })
 
             .build()

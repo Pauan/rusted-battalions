@@ -13,7 +13,7 @@ use rusted_battalions_engine::{
     Engine, EngineSettings, Spritesheet, SpritesheetSettings, RgbaImage,
     GrayscaleImage, IndexedImage, Texture, Node, BitmapFont,
     CharSize, ColorRgb, BitmapText, BitmapFontSettings, BitmapFontSupported,
-    Length,
+    ParentWidth, ParentHeight, Px, ScreenHeight,
 };
 
 use crate::util::future::executor;
@@ -141,19 +141,19 @@ impl Game {
                 .apply(|builder| {
                     builder
                         .offset(engine::Offset {
-                            x: Length::Parent(0.05),
-                            y: Length::Parent(0.1),
+                            x: ParentWidth(0.05),
+                            y: ParentHeight(0.1),
                         })
                         .size(engine::Size {
-                            width: Length::Parent(0.3),
-                            //width: Length::Px(832),
-                            height: Length::Parent(0.7),
+                            width: ParentWidth(0.2),
+                            //width: Px(832),
+                            height: ParentHeight(0.2),
                         })
                 })
 
                 .spritesheet(this.spritesheets.hud.clone())
 
-                .border_size(ui::BorderSize::all(Length::Px(16)))
+                .border_size(ui::BorderSize::all(Px(16)))
 
                 .quadrants(ui::Quadrants::from_grid(0, 0, 16, 16))
 
@@ -161,8 +161,14 @@ impl Game {
                     .text("This is a UI dialog box.\n\nHello world!".into())
                     .font(this.fonts.unifont.clone())
                     .char_size(CharSize {
-                        width: Length::Parent(1.0 / 40.0),
-                        height: Length::Parent(2.0 / 40.0),
+                        width: Px(16),
+                        height: Px(32),
+
+                        /*width: ScreenHeight(1.0 / 80.0),
+                        height: ScreenHeight(2.0 / 80.0),*/
+
+                        /*width: ParentWidth(1.0 / 30.0),
+                        height: ParentWidth(4.0 / 30.0),*/
                     })
                     .z_index(9000.0)
                     .build())
@@ -171,8 +177,8 @@ impl Game {
                     .text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello there world.\nHow's it going.\nT\u{031A}e\u{0303}s\u{0309}t\u{0310}i\u{1AB4}n\u{20DD}g  o\u{0489}\n\u{0000}\u{0000}\u{0000}\u{0000}T\u{0000}e\u{0000}s\u{0000}t\u{0000}i\u{0000}n\u{0000}g\n\nH̶̢̜̣̰̮͔̜̞͕̖̤͈̒͋͊̇̆̓͗͘ę̶̛͉͎̲̙͈͛̆̇̐̍̓͝͝ͅļ̵̰͓̗̩͎̈̓̎͗̈̇̓̀̀̓͘l̶̡̧̧̛̝͈̻͎̱̰̘͚̪̝̰̫̠̼͔̥̝͚͉̻̙̰̟̫͍̫̳̟̟͕̪̝͚̀́̆̓̉̒̓̈̿͌̀̃͑̚͘ͅͅǫ̵̨̢̢̡̛̙̼̤͍̩̘̬̟̞̹͔͕͙̠͉̟̥̲̝̙̥̺͉͇͓̱̗͖͖͔͍̪̰̳̳̩̠̿̇̍̐̈́́͌̓̀̊́̑̈́̈̊̋̃͛̇̃̍̇͌̆́͜͜͜͜͜͝ ̶̛̫̭͈͎̆̍̌̎̄͌̂̋̉̈́́̀͌́̐̆̓͊̽̉̎́̌̆̾̽͌́̕͘͘͘͘͘͜ẗ̴̘̙̜̤̳̺́̍̃̿̆̌̊͒̀̾̍̋̄̍̇͆͂̀͋̏̈̓̓͘͘͝͝h̵̨̪͓̯̫̯̥͇̭̭̱͉̯̮̻͙̘̻̩̠͉̥̰̟̰̗̠͕̘͈̘͎͉̜̞̤̪͖̍͂͂̋̀̃́̍̍̊̾̊̆̃͂̃̆̊̈́̔̐̽̓͘͘̕̚͘͜͝͝e̴̠̘̹͍̝̐́̂̕͝͠r̴̨̢̨̨̡̤̰͔̬̘͉̩̺̭͓̦̠̞̺͇̲̭̉͆͆͗̅̉̉̾̐̐̈́́̉͛̾͌͗͑́͋̎͗́̑͘̚̕͠͠͝͝ͅȩ̸̧̛̛̳̤̞͇̄̀̀͒̾̾͗͋̓̄̽̃͂̓͑͛̈͋̾̈́̊̔̕̕͝͝ ̶̧̡̗̳̗̳͋̈́͋̅̆͛͗͌̆̆͂̿͌͐͒͑͆m̴̧̢̢̛͎͉̩̺̥̲̺͙͎̱̱̖̼̪͍̪̱̬̩̮̞̲͈̫̭͕̗͈͉̥̙̣̺̻̩̯̪̒̆̈́̂̈́̀͊̑̅͂̀͂͊͑̽̽̃́͛̽̿͗̀̈́̀̓̈́̕͘͘̕͜͜͠ͅy̷̧͍͉̲̟̙͉͍̍̂̍͋̾̈́̋̒͌́̿̏͒̒́̊̈́͆̒́̊̆̈̀̎͛̏̆̈́̓̓̒̆͘̕͠͝ ̵̛͓̲̠͖̠̞͂̓̈͆͆̈́̇̇̄͒͋͑̉̏̈́̓́͐̅͐̉̃̃̚̕͘f̴̧̨̩̱̖̜͔̜̣͎̜͖̰̦͈̞̳̥͙̺̜̺̻̳̦̗̜̣͔̘̲̻̩̙̫̱͆̃͊̓͌̈́͊̂̌̊͐͊̂̋̑̂͗͑͜ͅŗ̵̮̺̱͔͖͖̖̲̯͚̬̰͎̜̺̫̠̮̺̰̮͖̳̜̈́̓̇̈́̓͊͋̓̈̀͌͊̆̈̂͑́̊̕͝í̸̢̡̨̢̡̡͇̪̗̬̹̺̝̪͍͙̻̯̲̮͔̼̟̰̞̱̩̱͉̭̹̬͚̼̮͎͚̙̤̱̰̙̯̩̼̬̊̋̓̏̅̒̔͋͑̿̀͛͊͒͌̄̔̉͠ͅͅê̷̛̘̣̞̮͉͙̣̘̦̝̯̰̠͉͉̖̞̘̰͕̻̯̰͖͙̜͖̮͉̖̪̲̪̩͇̥̠͎̲̜͓͈̥̋̈́̄͛͗̈́̿̀͌͘͜͜͠ͅͅͅñ̷̨̡̧̗̣̣̠̥̺̫͓̹̲͓̮̜͕̯̦͚͓̝̩̲͕̳̹͓̻̝̺̼͇̟̜̙̬̤͚̭̠̪̼̫̣̬͈̎̆̒̅͋͛̃͐͌͒̏̃͊̕͜͜ͅd̵̢̧̡̛͚͕͍͖̯̝̦̠̬̬̺̩̯̜̠̱̥̤̼͖̪͙̪̩̼̠͚̘͍̎̏̃.̸̨̩̖̱̭̯̤͔͓͎̙̼̲̮͍͉̦͓͙̠̦̲͈̯͉̯̱̲͙̤̳͍̏̽̂̂͊̈̀̇̐̉́̀̑͑́̌̈́̾̇̏̈͒̊̉̾̀̓̀̋͆͗͌̌̊͐͋̀̈́̀͑̐͋̾͊̚͜͠ͅͅ".into())
                     .font(this.fonts.unifont.clone())
                     .char_size(CharSize {
-                        width: engine::Length::Px(32),
-                        height: engine::Length::Px(64),
+                        width: Px(32),
+                        height: Px(64),
                     })
                     .z_index(9000.0)
                     .build())*/

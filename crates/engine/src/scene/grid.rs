@@ -4,6 +4,7 @@ use crate::scene::builder::{Node, make_builder, base_methods, location_methods, 
 use crate::scene::{
     NodeHandle, MinSize, Location, Origin, Size, Offset, Padding, Length,
     ScreenSpace, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize,
+    RealSize,
 };
 
 
@@ -14,12 +15,15 @@ pub struct GridSize {
 
 impl GridSize {
     fn to_screen_space(&self, parent: &ScreenSpace, screen_size: &ScreenSize) -> ScreenSpace {
+        let screen_width = screen_size.to_real_width();
+        let screen_height = screen_size.to_real_height();
+
         ScreenSpace {
             position: parent.position,
-            size: [
-                self.width.to_screen_space(parent.size[0], screen_size.width),
-                self.height.to_screen_space(parent.size[1], screen_size.height),
-            ],
+            size: RealSize {
+                width: self.width.to_screen_space(parent.size, screen_width, screen_size.width),
+                height: self.height.to_screen_space(parent.size, screen_height, screen_size.height),
+            },
             z_index: parent.z_index,
         }
     }
@@ -93,12 +97,12 @@ impl NodeLayout for Grid {
 
         let this_space = parent.modify(&self.location, &info.screen_size);
 
-        let max_width = this_space.size[0];
+        let max_width = this_space.size.width;
 
         let mut child_space = grid_size.to_screen_space(&this_space, &info.screen_size);
 
-        let child_width = child_space.size[0];
-        let child_height = child_space.size[1];
+        let child_width = child_space.size.width;
+        let child_height = child_space.size.height;
 
         let mut width = 0.0;
 
@@ -110,7 +114,7 @@ impl NodeLayout for Grid {
 
                 if width > child_width && width > max_width {
                     width = child_width;
-                    child_space.position[0] = this_space.position[0];
+                    child_space.position.x = this_space.position.x;
                     child_space.move_down(child_height);
                 }
 
@@ -122,7 +126,7 @@ impl NodeLayout for Grid {
 
                 lock.update_layout(child, &child_space, info);
 
-                child_space.position[0] = this_space.position[0] + width;
+                child_space.position.x = this_space.position.x + width;
             }
         }
 
