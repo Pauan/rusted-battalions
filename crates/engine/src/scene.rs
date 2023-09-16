@@ -8,7 +8,6 @@ use crate::util::buffer::{Uniform, TextureBuffer, IntoTexture};
 use sprite::{SpriteRenderer};
 use bitmap_text::{BitmapTextRenderer};
 
-//mod border_grid;
 mod builder;
 mod sprite;
 mod row;
@@ -16,9 +15,9 @@ mod column;
 mod stack;
 mod wrap;
 mod grid;
+mod border_grid;
 mod bitmap_text;
 
-//pub use border_grid::{BorderGrid, BorderGridBuilder, BorderSize, Quadrants};
 pub use builder::{Node};
 pub use sprite::{Sprite, SpriteBuilder, Spritesheet, SpritesheetSettings, Tile};
 pub use row::{Row, RowBuilder};
@@ -26,6 +25,7 @@ pub use column::{Column, ColumnBuilder};
 pub use stack::{Stack, StackBuilder};
 pub use wrap::{Wrap, WrapBuilder};
 pub use grid::{Grid, GridBuilder, GridSize};
+pub use border_grid::{BorderGrid, BorderGridBuilder, BorderSize, Quadrants};
 pub use bitmap_text::{
     BitmapText, BitmapTextBuilder, BitmapFont, BitmapFontSettings,
     BitmapFontSupported, ColorRgb, CharSize,

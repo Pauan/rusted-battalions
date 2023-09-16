@@ -1,13 +1,8 @@
 use rusted_battalions_engine as engine;
 use rusted_battalions_engine::{Length, Tile, Origin, Padding, Size, Node, Spritesheet};
 
+pub use rusted_battalions_engine::{BorderSize};
 
-pub struct BorderSize {
-    pub up: Length,
-    pub down: Length,
-    pub left: Length,
-    pub right: Length,
-}
 
 pub struct Quadrants {
     pub up: Tile,
@@ -100,13 +95,13 @@ pub struct SpriteBorderBuilder {
     border_size: Option<BorderSize>,
     quadrants: Option<Quadrants>,
     center: Option<Node>,
-    builder: engine::StackBuilder,
+    builder: engine::BorderGridBuilder,
 }
 
 impl SpriteBorderBuilder {
     #[inline]
     pub fn apply<F>(self, f: F) -> Self
-        where F: FnOnce(engine::StackBuilder) -> engine::StackBuilder {
+        where F: FnOnce(engine::BorderGridBuilder) -> engine::BorderGridBuilder {
         Self {
             builder: f(self.builder),
             ..self
@@ -143,146 +138,58 @@ impl SpriteBorderBuilder {
         let quadrants = self.quadrants.expect("Missing quadrants");
         let center = self.center.expect("Missing center");
 
-        self.builder.children([
-            engine::Sprite::builder()
-                .spritesheet(spritesheet.clone())
-                .tile(quadrants.up_left)
-                .size(Size {
-                    width: border_size.left,
-                    height: border_size.up,
-                })
-                .build(),
-
-            engine::Sprite::builder()
-                .spritesheet(spritesheet.clone())
-                .tile(quadrants.up)
-                .size(Size {
-                    width: Length::Parent(1.0),
-                    height: border_size.up,
-                })
-                .origin(Origin {
-                    x: 0.5,
-                    y: 0.0,
-                })
-                .padding(Padding {
-                    left: border_size.left,
-                    right: border_size.right,
-                    ..Padding::default()
-                })
-                .build(),
-
-            engine::Sprite::builder()
-                .spritesheet(spritesheet.clone())
-                .tile(quadrants.up_right)
-                .size(Size {
-                    width: border_size.right,
-                    height: border_size.up,
-                })
-                .origin(Origin {
-                    x: 1.0,
-                    y: 0.0,
-                })
-                .build(),
-
-            engine::Sprite::builder()
-                .spritesheet(spritesheet.clone())
-                .tile(quadrants.left)
-                .size(Size {
-                    width: border_size.left,
-                    height: Length::Parent(1.0),
-                })
-                .origin(Origin {
-                    x: 0.0,
-                    y: 0.5,
-                })
-                .padding(Padding {
-                    up: border_size.up,
-                    down: border_size.down,
-                    ..Padding::default()
-                })
-                .build(),
-
-            engine::Stack::builder()
-                .origin(Origin {
-                    x: 0.5,
-                    y: 0.5,
-                })
-                .padding(Padding {
-                    up: border_size.up,
-                    down: border_size.down,
-                    left: border_size.left,
-                    right: border_size.right,
-                })
-                .child(engine::Sprite::builder()
+        self.builder
+            .border_size(border_size)
+            .quadrants(engine::Quadrants {
+                up_left: engine::Sprite::builder()
                     .spritesheet(spritesheet.clone())
-                    .tile(quadrants.center)
-                    .build())
-                .child(center)
-                .build(),
+                    .tile(quadrants.up_left)
+                    .build(),
 
-            engine::Sprite::builder()
-                .spritesheet(spritesheet.clone())
-                .tile(quadrants.right)
-                .size(Size {
-                    width: border_size.right,
-                    height: Length::Parent(1.0),
-                })
-                .origin(Origin {
-                    x: 1.0,
-                    y: 0.5,
-                })
-                .padding(Padding {
-                    up: border_size.up,
-                    down: border_size.down,
-                    ..Padding::default()
-                })
-                .build(),
+                up: engine::Sprite::builder()
+                    .spritesheet(spritesheet.clone())
+                    .tile(quadrants.up)
+                    .build(),
 
-            engine::Sprite::builder()
-                .spritesheet(spritesheet.clone())
-                .tile(quadrants.down_left)
-                .size(Size {
-                    width: border_size.left,
-                    height: border_size.down,
-                })
-                .origin(Origin {
-                    x: 0.0,
-                    y: 1.0,
-                })
-                .build(),
+                up_right: engine::Sprite::builder()
+                    .spritesheet(spritesheet.clone())
+                    .tile(quadrants.up_right)
+                    .build(),
 
-            engine::Sprite::builder()
-                .spritesheet(spritesheet.clone())
-                .tile(quadrants.down)
-                .size(Size {
-                    width: Length::Parent(1.0),
-                    height: border_size.down,
-                })
-                .origin(Origin {
-                    x: 0.5,
-                    y: 1.0,
-                })
-                .padding(Padding {
-                    left: border_size.left,
-                    right: border_size.right,
-                    ..Padding::default()
-                })
-                .build(),
+                left: engine::Sprite::builder()
+                    .spritesheet(spritesheet.clone())
+                    .tile(quadrants.left)
+                    .build(),
 
-            engine::Sprite::builder()
-                .spritesheet(spritesheet.clone())
-                .tile(quadrants.down_right)
-                .size(Size {
-                    width: border_size.right,
-                    height: border_size.down,
-                })
-                .origin(Origin {
-                    x: 1.0,
-                    y: 1.0,
-                })
-                .build(),
-        ])
-        .build()
+                center: engine::Stack::builder()
+                    .child(engine::Sprite::builder()
+                        .spritesheet(spritesheet.clone())
+                        .tile(quadrants.center)
+                        .build())
+                    .child(center)
+                    .build(),
+
+                right: engine::Sprite::builder()
+                    .spritesheet(spritesheet.clone())
+                    .tile(quadrants.right)
+                    .build(),
+
+                down_left: engine::Sprite::builder()
+                    .spritesheet(spritesheet.clone())
+                    .tile(quadrants.down_left)
+                    .build(),
+
+                down: engine::Sprite::builder()
+                    .spritesheet(spritesheet.clone())
+                    .tile(quadrants.down)
+                    .build(),
+
+                down_right: engine::Sprite::builder()
+                    .spritesheet(spritesheet.clone())
+                    .tile(quadrants.down_right)
+                    .build(),
+            })
+            .build()
     }
 }
 
@@ -297,7 +204,7 @@ impl SpriteBorder {
             border_size: None,
             quadrants: None,
             center: None,
-            builder: engine::Stack::builder(),
+            builder: engine::BorderGrid::builder(),
         }
     }
 }

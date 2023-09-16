@@ -122,7 +122,7 @@ impl NodeLayout for Grid {
 
                 lock.update_layout(child, &child_space, info);
 
-                child_space.position[0] = width;
+                child_space.position[0] = this_space.position[0] + width;
             }
         }
 

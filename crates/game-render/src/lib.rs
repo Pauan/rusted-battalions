@@ -13,6 +13,7 @@ use rusted_battalions_engine::{
     Engine, EngineSettings, Spritesheet, SpritesheetSettings, RgbaImage,
     GrayscaleImage, IndexedImage, Texture, Node, BitmapFont,
     CharSize, ColorRgb, BitmapText, BitmapFontSettings, BitmapFontSupported,
+    Length,
 };
 
 use crate::util::future::executor;
@@ -49,6 +50,7 @@ struct Spritesheets {
     unit_small: Spritesheet,
     unit_big: Spritesheet,
     effect: Spritesheet,
+    hud: Spritesheet,
 }
 
 impl Spritesheets {
@@ -59,6 +61,7 @@ impl Spritesheets {
             unit_small: Spritesheet::new(),
             unit_big: Spritesheet::new(),
             effect: Spritesheet::new(),
+            hud: Spritesheet::new(),
         }
     }
 }
@@ -134,21 +137,45 @@ impl Game {
                 Some(Grid::render(&this, grid))
             })))
 
-            .child(engine::Stack::builder()
-                .size(engine::Size {
-                    width: engine::Length::Parent(1.0),
-                    //width: engine::Length::Px(832),
-                    height: engine::Length::Parent(1.0),
+            .child(ui::SpriteBorder::builder()
+                .apply(|builder| {
+                    builder
+                        .offset(engine::Offset {
+                            x: Length::Parent(0.05),
+                            y: Length::Parent(0.1),
+                        })
+                        .size(engine::Size {
+                            width: Length::Parent(0.3),
+                            //width: Length::Px(832),
+                            height: Length::Parent(0.7),
+                        })
                 })
 
-                .child(BitmapText::builder()
+                .spritesheet(this.spritesheets.hud.clone())
+
+                .border_size(ui::BorderSize::all(Length::Px(16)))
+
+                .quadrants(ui::Quadrants::from_grid(0, 0, 16, 16))
+
+                .center(BitmapText::builder()
+                    .text("This is a UI dialog box.\n\nHello world!".into())
+                    .font(this.fonts.unifont.clone())
+                    .char_size(CharSize {
+                        width: Length::Parent(1.0 / 40.0),
+                        height: Length::Parent(2.0 / 40.0),
+                    })
+                    .z_index(9000.0)
+                    .build())
+
+                /*.center(BitmapText::builder()
                     .text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello there world.\nHow's it going.\nT\u{031A}e\u{0303}s\u{0309}t\u{0310}i\u{1AB4}n\u{20DD}g  o\u{0489}\n\u{0000}\u{0000}\u{0000}\u{0000}T\u{0000}e\u{0000}s\u{0000}t\u{0000}i\u{0000}n\u{0000}g\n\nH̶̢̜̣̰̮͔̜̞͕̖̤͈̒͋͊̇̆̓͗͘ę̶̛͉͎̲̙͈͛̆̇̐̍̓͝͝ͅļ̵̰͓̗̩͎̈̓̎͗̈̇̓̀̀̓͘l̶̡̧̧̛̝͈̻͎̱̰̘͚̪̝̰̫̠̼͔̥̝͚͉̻̙̰̟̫͍̫̳̟̟͕̪̝͚̀́̆̓̉̒̓̈̿͌̀̃͑̚͘ͅͅǫ̵̨̢̢̡̛̙̼̤͍̩̘̬̟̞̹͔͕͙̠͉̟̥̲̝̙̥̺͉͇͓̱̗͖͖͔͍̪̰̳̳̩̠̿̇̍̐̈́́͌̓̀̊́̑̈́̈̊̋̃͛̇̃̍̇͌̆́͜͜͜͜͜͝ ̶̛̫̭͈͎̆̍̌̎̄͌̂̋̉̈́́̀͌́̐̆̓͊̽̉̎́̌̆̾̽͌́̕͘͘͘͘͘͜ẗ̴̘̙̜̤̳̺́̍̃̿̆̌̊͒̀̾̍̋̄̍̇͆͂̀͋̏̈̓̓͘͘͝͝h̵̨̪͓̯̫̯̥͇̭̭̱͉̯̮̻͙̘̻̩̠͉̥̰̟̰̗̠͕̘͈̘͎͉̜̞̤̪͖̍͂͂̋̀̃́̍̍̊̾̊̆̃͂̃̆̊̈́̔̐̽̓͘͘̕̚͘͜͝͝e̴̠̘̹͍̝̐́̂̕͝͠r̴̨̢̨̨̡̤̰͔̬̘͉̩̺̭͓̦̠̞̺͇̲̭̉͆͆͗̅̉̉̾̐̐̈́́̉͛̾͌͗͑́͋̎͗́̑͘̚̕͠͠͝͝ͅȩ̸̧̛̛̳̤̞͇̄̀̀͒̾̾͗͋̓̄̽̃͂̓͑͛̈͋̾̈́̊̔̕̕͝͝ ̶̧̡̗̳̗̳͋̈́͋̅̆͛͗͌̆̆͂̿͌͐͒͑͆m̴̧̢̢̛͎͉̩̺̥̲̺͙͎̱̱̖̼̪͍̪̱̬̩̮̞̲͈̫̭͕̗͈͉̥̙̣̺̻̩̯̪̒̆̈́̂̈́̀͊̑̅͂̀͂͊͑̽̽̃́͛̽̿͗̀̈́̀̓̈́̕͘͘̕͜͜͠ͅy̷̧͍͉̲̟̙͉͍̍̂̍͋̾̈́̋̒͌́̿̏͒̒́̊̈́͆̒́̊̆̈̀̎͛̏̆̈́̓̓̒̆͘̕͠͝ ̵̛͓̲̠͖̠̞͂̓̈͆͆̈́̇̇̄͒͋͑̉̏̈́̓́͐̅͐̉̃̃̚̕͘f̴̧̨̩̱̖̜͔̜̣͎̜͖̰̦͈̞̳̥͙̺̜̺̻̳̦̗̜̣͔̘̲̻̩̙̫̱͆̃͊̓͌̈́͊̂̌̊͐͊̂̋̑̂͗͑͜ͅŗ̵̮̺̱͔͖͖̖̲̯͚̬̰͎̜̺̫̠̮̺̰̮͖̳̜̈́̓̇̈́̓͊͋̓̈̀͌͊̆̈̂͑́̊̕͝í̸̢̡̨̢̡̡͇̪̗̬̹̺̝̪͍͙̻̯̲̮͔̼̟̰̞̱̩̱͉̭̹̬͚̼̮͎͚̙̤̱̰̙̯̩̼̬̊̋̓̏̅̒̔͋͑̿̀͛͊͒͌̄̔̉͠ͅͅê̷̛̘̣̞̮͉͙̣̘̦̝̯̰̠͉͉̖̞̘̰͕̻̯̰͖͙̜͖̮͉̖̪̲̪̩͇̥̠͎̲̜͓͈̥̋̈́̄͛͗̈́̿̀͌͘͜͜͠ͅͅͅñ̷̨̡̧̗̣̣̠̥̺̫͓̹̲͓̮̜͕̯̦͚͓̝̩̲͕̳̹͓̻̝̺̼͇̟̜̙̬̤͚̭̠̪̼̫̣̬͈̎̆̒̅͋͛̃͐͌͒̏̃͊̕͜͜ͅd̵̢̧̡̛͚͕͍͖̯̝̦̠̬̬̺̩̯̜̠̱̥̤̼͖̪͙̪̩̼̠͚̘͍̎̏̃.̸̨̩̖̱̭̯̤͔͓͎̙̼̲̮͍͉̦͓͙̠̦̲͈̯͉̯̱̲͙̤̳͍̏̽̂̂͊̈̀̇̐̉́̀̑͑́̌̈́̾̇̏̈͒̊̉̾̀̓̀̋͆͗͌̌̊͐͋̀̈́̀͑̐͋̾͊̚͜͠ͅͅ".into())
                     .font(this.fonts.unifont.clone())
                     .char_size(CharSize {
                         width: engine::Length::Px(32),
                         height: engine::Length::Px(64),
                     })
-                    .build())
+                    .z_index(9000.0)
+                    .build())*/
 
                 .build())
 
@@ -300,6 +327,19 @@ impl Game {
             self.spritesheets.terrain.load(&mut engine, SpritesheetSettings {
                 texture: &texture,
                 palette: Some(&palette),
+            });
+        }
+
+        {
+            let image = RgbaImage::from_bytes("hud", include_bytes!("../../../dist/sprites/hud.png"));
+
+            let texture = Texture::new();
+
+            texture.load(&mut engine, &image);
+
+            self.spritesheets.hud.load(&mut engine, SpritesheetSettings {
+                texture: &texture,
+                palette: None,
             });
         }
 

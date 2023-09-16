@@ -239,7 +239,7 @@ impl NodeLayout for BitmapText {
                             font.chars.push(gpu_char);
                         }
 
-                        char_space.position[0] = width;
+                        char_space.position[0] = this_space.position[0] + width;
                     }
                 }
 

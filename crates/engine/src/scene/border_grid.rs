@@ -14,6 +14,16 @@ pub struct BorderSize {
 }
 
 impl BorderSize {
+    #[inline]
+    pub fn all(length: Length) -> Self {
+        Self {
+            up: length,
+            down: length,
+            left: length,
+            right: length,
+        }
+    }
+
     fn min_size(&self, screen_size: &ScreenSize) -> MinSize {
         MinSize {
             width: self.left.min_length(screen_size.width) + self.right.min_length(screen_size.width),
@@ -35,6 +45,24 @@ pub struct Quadrants {
     pub down_left: Node,
     pub down: Node,
     pub down_right: Node,
+}
+
+impl Quadrants {
+    fn iter_mut(&mut self) -> impl Iterator<Item = &mut Node> {
+        [
+            &mut self.up_left,
+            &mut self.up,
+            &mut self.up_right,
+
+            &mut self.left,
+            &mut self.center,
+            &mut self.right,
+
+            &mut self.down_left,
+            &mut self.down,
+            &mut self.down_right,
+        ].into_iter()
+    }
 }
 
 
@@ -61,7 +89,7 @@ impl BorderGrid {
         }
     }
 
-    fn update_child<'a>(child: &Node, space: &ScreenSpace, info: &mut SceneLayoutInfo<'a>) {
+    fn update_child<'a>(child: &Node, info: &mut SceneLayoutInfo<'a>, space: &ScreenSpace) {
         let mut lock = child.handle.lock();
 
         if lock.is_visible() {
@@ -104,15 +132,9 @@ location_methods!(BorderGrid, BorderGridBuilder, true);
 impl BorderGridBuilder {
     /// Sets the [`Quadrants`] for the border grid.
     pub fn quadrants(mut self, mut quadrants: Quadrants) -> Self {
-        self.callbacks.transfer(&mut quadrants.up_left.callbacks);
-        self.callbacks.transfer(&mut quadrants.up.callbacks);
-        self.callbacks.transfer(&mut quadrants.up_right.callbacks);
-        self.callbacks.transfer(&mut quadrants.left.callbacks);
-        self.callbacks.transfer(&mut quadrants.center.callbacks);
-        self.callbacks.transfer(&mut quadrants.right.callbacks);
-        self.callbacks.transfer(&mut quadrants.down_left.callbacks);
-        self.callbacks.transfer(&mut quadrants.down.callbacks);
-        self.callbacks.transfer(&mut quadrants.down_right.callbacks);
+        for quadrant in quadrants.iter_mut() {
+            self.callbacks.transfer(&mut quadrant.callbacks);
+        }
 
         self.state.lock().quadrants = Some(quadrants);
         self
@@ -195,81 +217,73 @@ impl NodeLayout for BorderGrid {
         let size_down = border_size.down.to_screen_space(this_space.size[1], info.screen_size.height);
 
         let position_left = this_space.position[0];
-        let position_right = this_space.position[0] + this_space.size[0] - right;
+        let position_right = position_left + (this_space.size[0] - size_right).max(0.0);
 
         let position_up = this_space.position[1];
-        let position_down = this_space.position[1] + this_space.size[1] - down;
+        let position_down = position_up + (this_space.size[1] - size_down).max(0.0);
 
-        let center = ScreenSpace {
-            position: [
-                this_space.position[0] + size_left,
-                this_space.position[1] + size_up,
-            ],
-            size: [
-                (this_space.size[0] - size_left - size_right).max(0.0),
-                (this_space.size[1] - size_up - size_down).max(0.0),
-            ],
-        };
+        let center_width = (this_space.size[0] - size_left - size_right).max(0.0);
+        let center_height = (this_space.size[1] - size_up - size_down).max(0.0);
+
+        let center_left = position_left + size_left;
+        let center_up = position_up + size_up;
 
 
         Self::update_child(&quadrants.up_left, info, &ScreenSpace {
             position: [position_left, position_up],
             size: [size_left, size_up],
+            z_index: info.renderer.get_max_z_index(),
         });
 
         Self::update_child(&quadrants.up, info, &ScreenSpace {
-            position: [center.position[0], position_up],
-            size: [center.size[0], size_up],
+            position: [center_left, position_up],
+            size: [center_width, size_up],
+            z_index: info.renderer.get_max_z_index(),
         });
 
         Self::update_child(&quadrants.up_right, info, &ScreenSpace {
             position: [position_right, position_up],
             size: [size_right, size_up],
+            z_index: info.renderer.get_max_z_index(),
         });
 
 
-        child_space.position[0] += center_width;
-        child_space.size = [right, up];
+        Self::update_child(&quadrants.left, info, &ScreenSpace {
+            position: [position_left, center_up],
+            size: [size_left, center_height],
+            z_index: info.renderer.get_max_z_index(),
+        });
 
-        Self::update_child(&quadrants.up_right, &child_space, info);
+        Self::update_child(&quadrants.center, info, &ScreenSpace {
+            position: [center_left, center_up],
+            size: [center_width, center_height],
+            z_index: info.renderer.get_max_z_index(),
+        });
 
-
-        child_space.position[0] = this_space.position[0];
-        child_space.position[1] += up;
-        child_space.size = [left, center_height];
-
-        Self::update_child(&quadrants.left, &child_space, info);
-
-
-        child_space.position[0] += left;
-        child_space.size = [center_width, center_height];
-
-        Self::update_child(&quadrants.center, &child_space, info);
-
-
-        child_space.position[0] += center_width;
-        child_space.size = [right, center_height];
-
-        Self::update_child(&quadrants.right, &child_space, info);
+        Self::update_child(&quadrants.right, info, &ScreenSpace {
+            position: [position_right, center_up],
+            size: [size_right, center_height],
+            z_index: info.renderer.get_max_z_index(),
+        });
 
 
-        child_space.position[0] = this_space.position[0];
-        child_space.position[1] += center_height;
-        child_space.size = [left, down];
+        Self::update_child(&quadrants.down_left, info, &ScreenSpace {
+            position: [position_left, position_down],
+            size: [size_left, size_down],
+            z_index: info.renderer.get_max_z_index(),
+        });
 
-        Self::update_child(&quadrants.down_left, &child_space, info);
+        Self::update_child(&quadrants.down, info, &ScreenSpace {
+            position: [center_left, position_down],
+            size: [center_width, size_down],
+            z_index: info.renderer.get_max_z_index(),
+        });
 
-
-        child_space.position[0] += left;
-        child_space.size = [center_width, down];
-
-        Self::update_child(&quadrants.down, &child_space, info);
-
-
-        child_space.position[0] += center_width;
-        child_space.size = [right, down];
-
-        Self::update_child(&quadrants.down_right, &child_space, info);
+        Self::update_child(&quadrants.down_right, info, &ScreenSpace {
+            position: [position_right, position_down],
+            size: [size_right, size_down],
+            z_index: info.renderer.get_max_z_index(),
+        });
 
 
         self.min_size = None;
