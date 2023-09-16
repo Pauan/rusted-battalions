@@ -12,8 +12,61 @@ use crate::scene::builder::{Node, make_builder, base_methods, location_methods, 
 use crate::scene::{
     Handle, Handles, Texture, MinSize, Location, Padding, Origin, Offset, Size, ScreenSize,
     SceneLayoutInfo, SceneRenderInfo, RealLocation, NodeLayout,  NodeHandle, SceneUniform,
-    ScenePrerender, Prerender,
+    ScenePrerender, Prerender, Length, RealSize,
 };
+
+
+#[derive(Debug, Clone, Copy)]
+pub enum Repeat {
+    /// Don't repeat, stretches to fill the entire sprite.
+    None,
+
+    /// Repeats the tile every length (relative to the sprite's parent).
+    Length(Length),
+
+    /// Repeats the tile a certain number of times.
+    Count(f32),
+}
+
+impl Repeat {
+    fn to_uv(&self, parent: RealSize, screen: RealSize, pixels: f32, distance: f32) -> f32 {
+        match self {
+            Self::None => 1.0,
+            Self::Length(length) => {
+                distance / length.to_screen_space(parent, screen, pixels)
+            },
+            Self::Count(count) => *count,
+        }
+    }
+}
+
+impl Default for Repeat {
+    /// Returns [`Repeat::None`].
+    #[inline]
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+
+/// Specifies the repetition of the sprite tile.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RepeatTile {
+    pub width: Repeat,
+    pub height: Repeat,
+}
+
+impl RepeatTile {
+    fn to_uv(&self, this: RealSize, parent: RealSize, screen_size: &ScreenSize) -> [f32; 2] {
+        let screen_width = screen_size.to_real_width();
+        let screen_height = screen_size.to_real_height();
+
+        [
+            self.width.to_uv(parent, screen_width, screen_size.width, this.width),
+            self.height.to_uv(parent, screen_height, screen_size.height, this.height),
+        ]
+    }
+}
 
 
 /// Specifies which tile should be displayed (in pixel coordinates).
@@ -55,6 +108,7 @@ pub(crate) struct GPUSprite {
     pub(crate) position: [f32; 2],
     pub(crate) size: [f32; 2],
     pub(crate) z_index: f32,
+    pub(crate) uv: [f32; 2],
     pub(crate) tile: [u32; 4],
 }
 
@@ -80,7 +134,7 @@ impl GPUSprite {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
 #[layout(step_mode = Instance)]
-#[layout(location = 4)]
+#[layout(location = 5)]
 pub(crate) struct GPUPalette {
     pub(crate) palette: u32,
 }
@@ -97,13 +151,14 @@ pub struct Sprite {
     stretch: bool,
     location: Location,
     spritesheet: Option<Spritesheet>,
+    repeat_tile: RepeatTile,
+
     parent_location: Option<RealLocation>,
     min_size: Option<MinSize>,
 
-    gpu: GPUSprite,
     gpu_index: usize,
-
-    palette: GPUPalette,
+    gpu_sprite: GPUSprite,
+    gpu_palette: GPUPalette,
 }
 
 impl Sprite {
@@ -116,15 +171,14 @@ impl Sprite {
             stretch: false,
             location: Location::default(),
             spritesheet: None,
+            repeat_tile: RepeatTile::default(),
+
             parent_location: None,
             min_size: None,
 
-            gpu: GPUSprite::default(),
             gpu_index: 0,
-
-            palette: GPUPalette {
-                palette: 0,
-            },
+            gpu_sprite: GPUSprite::default(),
+            gpu_palette: GPUPalette::default(),
         }
     }
 
@@ -133,7 +187,9 @@ impl Sprite {
 
         let location = parent.modify(&self.location, &screen_size);
 
-        self.gpu.update(&location);
+        self.gpu_sprite.uv = self.repeat_tile.to_uv(location.size, parent.size, screen_size);
+
+        self.gpu_sprite.update(&location);
     }
 }
 
@@ -164,8 +220,27 @@ impl SpriteBuilder {
         false,
         true,
         |state, value: Tile| {
-            state.gpu.tile = [value.start_x, value.start_y, value.end_x, value.end_y];
+            state.gpu_sprite.tile = [
+                value.start_x,
+                value.start_y,
+                value.end_x,
+                value.end_y,
+            ];
+
             state.render_changed = true;
+        },
+    );
+
+    simple_method!(
+        /// Sets the [`RepeatTile`] which specifies how to repeat the sprite tile.
+        repeat_tile,
+        repeat_tile_signal,
+        false,
+        true,
+        |state, value: RepeatTile| {
+            state.repeat_tile = value;
+            state.render_changed = true;
+            state.location_changed = true;
         },
     );
 
@@ -176,7 +251,7 @@ impl SpriteBuilder {
         false,
         true,
         |state, value: u32| {
-            state.palette.palette = value;
+            state.gpu_palette.palette = value;
             state.render_changed = true;
         },
     );
@@ -206,19 +281,19 @@ impl NodeLayout for Sprite {
 
         self.update_gpu(&info.screen_size);
 
-        info.renderer.set_max_z_index(self.gpu.z_index);
+        info.renderer.set_max_z_index(self.gpu_sprite.z_index);
 
         let spritesheet = self.spritesheet.as_ref().expect("Sprite is missing spritesheet");
 
         if let Some(spritesheet) = info.renderer.sprite.spritesheets.get_mut(&spritesheet.handle) {
-            self.gpu_index = spritesheet.locations.len();
+            self.gpu_index = spritesheet.sprites.len();
 
-            spritesheet.locations.push(self.gpu);
+            spritesheet.sprites.push(self.gpu_sprite);
 
             match spritesheet.extra {
                 SpritesheetExtra::Normal => {},
                 SpritesheetExtra::Palette { ref mut palettes } => {
-                    palettes.push(self.palette);
+                    palettes.push(self.gpu_palette);
                 },
             }
         }
@@ -241,18 +316,18 @@ impl NodeLayout for Sprite {
             let spritesheet = self.spritesheet.as_ref().expect("Sprite is missing spritesheet");
 
             if let Some(spritesheet) = info.renderer.sprite.spritesheets.get_mut(&spritesheet.handle) {
-                spritesheet.locations[self.gpu_index] = self.gpu;
+                spritesheet.sprites[self.gpu_index] = self.gpu_sprite;
 
                 match spritesheet.extra {
                     SpritesheetExtra::Normal => {},
                     SpritesheetExtra::Palette { ref mut palettes } => {
-                        palettes[self.gpu_index] = self.palette;
+                        palettes[self.gpu_index] = self.gpu_palette;
                     },
                 }
             }
         }
 
-        info.renderer.set_max_z_index(self.gpu.z_index);
+        info.renderer.set_max_z_index(self.gpu_sprite.z_index);
     }
 }
 
@@ -313,7 +388,7 @@ enum SpritesheetExtra {
 }
 
 struct SpritesheetState {
-    locations: InstanceVec<GPUSprite>,
+    sprites: InstanceVec<GPUSprite>,
     bind_group: wgpu::BindGroup,
     extra: SpritesheetExtra,
 }
@@ -378,14 +453,14 @@ impl SpriteRenderer {
     }
 
     fn new_spritesheet(&mut self, engine: &crate::EngineState, handle: &Handle, texture: &TextureBuffer, palette: Option<&TextureBuffer>) {
-        let locations = InstanceVec::new();
+        let sprites = InstanceVec::new();
 
         let state = if let Some(palette) = palette {
             assert_eq!(texture.texture.format(), IndexedImage::FORMAT, "texture must be an IndexedImage");
             assert_eq!(palette.texture.format(), RgbaImage::FORMAT, "palette must be an RgbaImage");
 
             SpritesheetState {
-                locations,
+                sprites,
                 extra: SpritesheetExtra::Palette {
                     palettes: InstanceVec::new(),
                 },
@@ -401,7 +476,7 @@ impl SpriteRenderer {
             assert_eq!(texture.texture.format(), RgbaImage::FORMAT, "texture must be an RgbaImage");
 
             SpritesheetState {
-                locations,
+                sprites,
                 extra: SpritesheetExtra::Normal,
                 bind_group: builders::BindGroup::builder()
                     .label("Spritesheet")
@@ -421,7 +496,7 @@ impl SpriteRenderer {
     #[inline]
     pub(crate) fn before_layout(&mut self) {
         for (_, sheet) in self.spritesheets.iter_mut() {
-            sheet.locations.clear();
+            sheet.sprites.clear();
 
             match sheet.extra {
                 SpritesheetExtra::Normal => {},
@@ -445,7 +520,7 @@ impl SpriteRenderer {
         prerender.prerenders.reserve(self.spritesheets.len());
 
         for (_, sheet) in self.spritesheets.iter_mut() {
-            let instances = sheet.locations.len() as u32;
+            let instances = sheet.sprites.len() as u32;
 
             let bind_groups = vec![
                 scene_uniform,
@@ -458,7 +533,7 @@ impl SpriteRenderer {
             };
 
             let slices = vec![
-                sheet.locations.update_buffer(engine, &InstanceVecOptions {
+                sheet.sprites.update_buffer(engine, &InstanceVecOptions {
                     label: Some("Sprite Instance Buffer"),
                 }),
 

@@ -19,7 +19,7 @@ mod border_grid;
 mod bitmap_text;
 
 pub use builder::{Node};
-pub use sprite::{Sprite, SpriteBuilder, Spritesheet, SpritesheetSettings, Tile};
+pub use sprite::{Sprite, SpriteBuilder, Spritesheet, SpritesheetSettings, Tile, RepeatTile, Repeat};
 pub use row::{Row, RowBuilder};
 pub use column::{Column, ColumnBuilder};
 pub use stack::{Stack, StackBuilder};

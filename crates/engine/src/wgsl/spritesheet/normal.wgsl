@@ -4,6 +4,7 @@
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
+    @location(1) tile: vec4<u32>,
 };
 
 @vertex
@@ -16,13 +17,16 @@ fn vs_main(
 
     var out: VertexOutput;
     out.clip_position = sprite_clip_position(sprite, vert_x, vert_y);
-    out.uv = sprite_uv(sprite, vert_x, vert_y);
+    out.uv = make_uv(sprite.uv, vert_x, vert_y);
+    out.tile = sprite.tile;
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let color = textureLoad(spritesheet, uv_u32(in.uv), 0);
+    let uv = tile_uv(normalize_uv(in.uv), in.tile);
+
+    let color = textureLoad(spritesheet, uv, 0);
 
     if color.a == 0.0 {
         discard;

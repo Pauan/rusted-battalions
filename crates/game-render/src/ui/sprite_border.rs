@@ -1,7 +1,7 @@
 use rusted_battalions_engine as engine;
 use rusted_battalions_engine::{Length, Tile, Origin, Padding, Size, Node, Spritesheet};
 
-pub use rusted_battalions_engine::{BorderSize};
+pub use rusted_battalions_engine::{BorderSize, RepeatTile, Repeat};
 
 
 pub struct Quadrants {
@@ -95,6 +95,7 @@ pub struct SpriteBorderBuilder {
     border_size: Option<BorderSize>,
     quadrants: Option<Quadrants>,
     center: Option<Node>,
+    repeat_tile: RepeatTile,
     builder: engine::BorderGridBuilder,
 }
 
@@ -132,6 +133,12 @@ impl SpriteBorderBuilder {
         self
     }
 
+    #[inline]
+    pub fn repeat_tile(mut self, repeat_tile: RepeatTile) -> Self {
+        self.repeat_tile = repeat_tile;
+        self
+    }
+
     pub fn build(self) -> Node {
         let spritesheet = self.spritesheet.expect("Missing spritesheet");
         let border_size = self.border_size.expect("Missing border_size");
@@ -149,6 +156,10 @@ impl SpriteBorderBuilder {
                 up: engine::Sprite::builder()
                     .spritesheet(spritesheet.clone())
                     .tile(quadrants.up)
+                    .repeat_tile(RepeatTile {
+                        height: Repeat::None,
+                        ..self.repeat_tile
+                    })
                     .build(),
 
                 up_right: engine::Sprite::builder()
@@ -159,12 +170,17 @@ impl SpriteBorderBuilder {
                 left: engine::Sprite::builder()
                     .spritesheet(spritesheet.clone())
                     .tile(quadrants.left)
+                    .repeat_tile(RepeatTile {
+                        width: Repeat::None,
+                        ..self.repeat_tile
+                    })
                     .build(),
 
                 center: engine::Stack::builder()
                     .child(engine::Sprite::builder()
                         .spritesheet(spritesheet.clone())
                         .tile(quadrants.center)
+                        .repeat_tile(self.repeat_tile)
                         .build())
                     .child(center)
                     .build(),
@@ -172,6 +188,10 @@ impl SpriteBorderBuilder {
                 right: engine::Sprite::builder()
                     .spritesheet(spritesheet.clone())
                     .tile(quadrants.right)
+                    .repeat_tile(RepeatTile {
+                        width: Repeat::None,
+                        ..self.repeat_tile
+                    })
                     .build(),
 
                 down_left: engine::Sprite::builder()
@@ -182,6 +202,10 @@ impl SpriteBorderBuilder {
                 down: engine::Sprite::builder()
                     .spritesheet(spritesheet.clone())
                     .tile(quadrants.down)
+                    .repeat_tile(RepeatTile {
+                        height: Repeat::None,
+                        ..self.repeat_tile
+                    })
                     .build(),
 
                 down_right: engine::Sprite::builder()
@@ -204,6 +228,7 @@ impl SpriteBorder {
             border_size: None,
             quadrants: None,
             center: None,
+            repeat_tile: RepeatTile::default(),
             builder: engine::BorderGrid::builder(),
         }
     }

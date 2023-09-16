@@ -48,7 +48,7 @@ impl CharSize {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
 #[layout(step_mode = Instance)]
-#[layout(location = 4)]
+#[layout(location = 5)]
 pub(crate) struct GPUChar {
     pub(crate) color: [f32; 3],
 }
@@ -245,6 +245,8 @@ impl NodeLayout for BitmapText {
 
                             let mut gpu_sprite = GPUSprite::default();
                             let mut gpu_char = GPUChar::default();
+
+                            gpu_sprite.uv = [1.0, 1.0];
 
                             gpu_sprite.update(&char_location);
 

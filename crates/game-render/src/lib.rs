@@ -13,7 +13,7 @@ use rusted_battalions_engine::{
     Engine, EngineSettings, Spritesheet, SpritesheetSettings, RgbaImage,
     GrayscaleImage, IndexedImage, Texture, Node, BitmapFont,
     CharSize, ColorRgb, BitmapText, BitmapFontSettings, BitmapFontSupported,
-    ParentWidth, ParentHeight, Px, ScreenHeight,
+    ParentWidth, ParentHeight, Px, ScreenHeight, RepeatTile, Repeat,
 };
 
 use crate::util::future::executor;
@@ -141,8 +141,8 @@ impl Game {
                 .apply(|builder| {
                     builder
                         .offset(engine::Offset {
-                            x: ParentWidth(0.05),
-                            y: ParentHeight(0.1),
+                            x: ParentWidth(0.04),
+                            y: ParentHeight(0.09),
                         })
                         .size(engine::Size {
                             width: ParentWidth(0.2),
@@ -153,7 +153,12 @@ impl Game {
 
                 .spritesheet(this.spritesheets.hud.clone())
 
-                .border_size(ui::BorderSize::all(Px(16)))
+                .repeat_tile(RepeatTile {
+                    width: Repeat::Length(Px(16)),
+                    height: Repeat::Length(Px(16)),
+                })
+
+                .border_size(ui::BorderSize::all(Px(32)))
 
                 .quadrants(ui::Quadrants::from_grid(0, 0, 16, 16))
 

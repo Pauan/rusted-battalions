@@ -2,12 +2,13 @@
 
 
 struct Text {
-    @location(4) color: vec3<f32>,
+    @location(5) color: vec3<f32>,
 };
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
+    @location(1) tile: vec4<u32>,
     @location(2) color: vec3<f32>,
 };
 
@@ -22,14 +23,17 @@ fn vs_main(
 
     var out: VertexOutput;
     out.clip_position = sprite_clip_position(sprite, vert_x, vert_y);
-    out.uv = sprite_uv(sprite, vert_x, vert_y);
+    out.uv = make_uv(sprite.uv, vert_x, vert_y);
+    out.tile = sprite.tile;
     out.color = text.color;
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let color = textureLoad(spritesheet, uv_u32(in.uv), 0);
+    let uv = tile_uv(normalize_uv(in.uv), in.tile);
+
+    let color = textureLoad(spritesheet, uv, 0);
 
     if color.r == 0u {
         discard;
