@@ -11,7 +11,7 @@ use crate::util::buffer::{
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method};
 use crate::scene::{
     Handle, Handles, Texture, MinSize, Location, Padding, Origin, Offset, Size, ScreenSize,
-    SceneLayoutInfo, SceneRenderInfo, ScreenSpace, NodeLayout,  NodeHandle, SceneUniform,
+    SceneLayoutInfo, SceneRenderInfo, RealLocation, NodeLayout,  NodeHandle, SceneUniform,
     ScenePrerender, Prerender,
 };
 
@@ -59,20 +59,20 @@ pub(crate) struct GPUSprite {
 }
 
 impl GPUSprite {
-    pub(crate) fn update(&mut self, space: &ScreenSpace) {
-        let space = space.convert_to_wgpu_coordinates();
+    pub(crate) fn update(&mut self, location: &RealLocation) {
+        let location = location.convert_to_wgpu_coordinates();
 
         self.position = [
-            space.position.x,
+            location.position.x,
 
             // The origin point of our sprites is in the upper-left corner,
             // but with wgpu the origin point is in the lower-left corner.
             // So we shift the y position into the lower-left corner of the sprite.
-            space.position.y - space.size.height,
+            location.position.y - location.size.height,
         ];
 
-        self.size = [space.size.width, space.size.height];
-        self.z_index = space.z_index;
+        self.size = [location.size.width, location.size.height];
+        self.z_index = location.z_index;
     }
 }
 
@@ -97,7 +97,7 @@ pub struct Sprite {
     stretch: bool,
     location: Location,
     spritesheet: Option<Spritesheet>,
-    parent_space: Option<ScreenSpace>,
+    parent_location: Option<RealLocation>,
     min_size: Option<MinSize>,
 
     gpu: GPUSprite,
@@ -116,7 +116,7 @@ impl Sprite {
             stretch: false,
             location: Location::default(),
             spritesheet: None,
-            parent_space: None,
+            parent_location: None,
             min_size: None,
 
             gpu: GPUSprite::default(),
@@ -129,11 +129,11 @@ impl Sprite {
     }
 
     fn update_gpu(&mut self, screen_size: &ScreenSize) {
-        let parent = self.parent_space.as_ref().unwrap();
+        let parent = self.parent_location.as_ref().unwrap();
 
-        let space = parent.modify(&self.location, &screen_size);
+        let location = parent.modify(&self.location, &screen_size);
 
-        self.gpu.update(&space);
+        self.gpu.update(&location);
     }
 }
 
@@ -199,10 +199,10 @@ impl NodeLayout for Sprite {
         })
     }
 
-    fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &ScreenSpace, info: &mut SceneLayoutInfo<'a>) {
+    fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
         self.render_changed = false;
         self.location_changed = false;
-        self.parent_space = Some(*parent);
+        self.parent_location = Some(*parent);
 
         self.update_gpu(&info.screen_size);
 

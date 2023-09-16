@@ -54,14 +54,14 @@ pub(crate) struct RealSize {
 
 /// The x / y / width / height / z-index in screen space.
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct ScreenSpace {
+pub(crate) struct RealLocation {
     pub(crate) position: RealPosition,
     pub(crate) size: RealSize,
     pub(crate) z_index: f32,
 }
 
-impl ScreenSpace {
-    /// Returns a ScreenSpace that covers the entire screen.
+impl RealLocation {
+    /// Returns a [`RealLocation`] that covers the entire screen.
     pub(crate) fn full() -> Self {
          Self {
             position: RealPosition {
@@ -76,7 +76,9 @@ impl ScreenSpace {
         }
     }
 
-    /// Calculates the new screen space position based on the Location.
+    /// Calculates the new [`RealLocation`] based on the [`Location`].
+    ///
+    /// Assume that `self` is the parent, and `location` is the child.
     pub(crate) fn modify(&self, location: &Location, screen: &ScreenSize) -> Self {
         let screen_width = screen.to_real_width();
         let screen_height = screen.to_real_height();
@@ -108,19 +110,19 @@ impl ScreenSpace {
         }
     }
 
-    /// Used by Row to shift the ScreenSpace for each child
+    /// Shifts the position to the right.
     #[inline]
     pub(crate) fn move_right(&mut self, amount: f32) {
         self.position.x += amount;
     }
 
-    /// Used by Column to shift the ScreenSpace for each child
+    /// Shifts the position down.
     #[inline]
     pub(crate) fn move_down(&mut self, amount: f32) {
         self.position.y += amount;
     }
 
-    /// This method converts from our coordinate system into wgpu's coordinate system.
+    /// Converts from our coordinate system into wgpu's coordinate system.
     ///
     /// Our coordinate system looks like this:
     ///
@@ -435,6 +437,7 @@ impl Location {
 }
 
 
+/// The width / height of the screen in pixels.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ScreenSize {
     pub(crate) width: f32,
@@ -507,7 +510,7 @@ pub(crate) trait NodeLayout {
     /// If the Node is visible then update_layout MUST be called.
     ///
     /// The handle must be the same as this NodeLayout.
-    fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &ScreenSpace, info: &mut SceneLayoutInfo<'a>);
+    fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>);
 
     /// Re-renders the Node.
     ///
@@ -908,7 +911,7 @@ impl Scene {
                     rendered_nodes: &mut self.rendered_nodes,
                 };
 
-                let parent = ScreenSpace::full();
+                let parent = RealLocation::full();
 
                 lock.update_layout(child, &parent, &mut info);
             }

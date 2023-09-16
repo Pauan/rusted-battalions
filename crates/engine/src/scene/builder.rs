@@ -3,7 +3,7 @@ use futures::future::{AbortHandle, Abortable};
 use std::future::Future;
 
 use crate::util::{Arc, Lock};
-use crate::scene::{SceneChanged, NodeHandle, MinSize, NodeLayout, ScreenSpace, SceneLayoutInfo, SceneRenderInfo};
+use crate::scene::{SceneChanged, NodeHandle, MinSize, NodeLayout, RealLocation, SceneLayoutInfo, SceneRenderInfo};
 
 
 pub(crate) struct Callbacks {
@@ -200,7 +200,7 @@ impl NodeLayout for OptionNode {
         }
     }
 
-    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &ScreenSpace, info: &mut SceneLayoutInfo<'a>) {
+    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
         if let Some(child) = &self.child {
             let mut lock = child.handle.lock();
             lock.update_layout(&child.handle, parent, info);

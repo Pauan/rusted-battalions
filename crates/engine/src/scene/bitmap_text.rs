@@ -12,7 +12,7 @@ use crate::scene::builder::{Node, make_builder, base_methods, location_methods, 
 use crate::scene::sprite::{GPUSprite, Tile, SpritesheetPipeline, SCENE_SHADER, SPRITE_SHADER};
 use crate::scene::{
     NodeHandle, MinSize, Location, Origin, Size, Offset, Padding,
-    ScreenSpace, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
+    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
     Length, Percentage, Handles, Prerender, Texture, SceneUniform,
     ScenePrerender, RealSize, ScreenSize,
 };
@@ -180,28 +180,28 @@ impl NodeLayout for BitmapText {
         })
     }
 
-    fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &ScreenSpace, info: &mut SceneLayoutInfo<'a>) {
+    fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
         let font = self.font.as_ref().expect("BitmapText is missing font");
         let char_size = self.char_size.as_ref().expect("BitmapText is missing char_size");
 
         if let Some(font) = info.renderer.bitmap_text.fonts.get_mut(&font.handle) {
-            let this_space = parent.modify(&self.location, &info.screen_size);
+            let this_location = parent.modify(&self.location, &info.screen_size);
 
-            self.z_index = this_space.z_index;
+            self.z_index = this_location.z_index;
 
-            let char_size = char_size.to_screen_space(this_space.size, &info.screen_size);
+            let char_size = char_size.to_screen_space(this_location.size, &info.screen_size);
 
             let line_spacing = self.line_spacing.to_screen_space(
-                this_space.size,
+                this_location.size,
                 info.screen_size.to_real_height(),
                 info.screen_size.height,
             );
 
             let line_height = char_size.height + line_spacing;
 
-            let max_width = this_space.size.width;
+            let max_width = this_location.size.width;
 
-            let mut char_space = this_space;
+            let mut char_location = this_location;
 
             for line in self.text.lines() {
                 let mut width = 0.0;
@@ -227,11 +227,11 @@ impl NodeLayout for BitmapText {
 
                         if width > max_char_width && width > max_width {
                             width = max_char_width;
-                            char_space.position.x = this_space.position.x;
-                            char_space.move_down(line_height);
+                            char_location.position.x = this_location.position.x;
+                            char_location.move_down(line_height);
                         }
 
-                        char_space.size = RealSize {
+                        char_location.size = RealSize {
                             width: 2.0 * char_size.width,
                             height: char_size.height,
                         };
@@ -239,14 +239,14 @@ impl NodeLayout for BitmapText {
                         for c in grapheme.chars() {
                             let c = font.supported.replace(c);
 
-                            let mut char_space = char_space;
+                            let mut char_location = char_location;
 
-                            char_space.move_right(unicode::char_offset(c, unicode_width) * char_size.width);
+                            char_location.move_right(unicode::char_offset(c, unicode_width) * char_size.width);
 
                             let mut gpu_sprite = GPUSprite::default();
                             let mut gpu_char = GPUChar::default();
 
-                            gpu_sprite.update(&char_space);
+                            gpu_sprite.update(&char_location);
 
                             // Always display the full width tile
                             let tile = font.tile(c, 2);
@@ -258,12 +258,12 @@ impl NodeLayout for BitmapText {
                             font.chars.push(gpu_char);
                         }
 
-                        char_space.position.x = this_space.position.x + width;
+                        char_location.position.x = this_location.position.x + width;
                     }
                 }
 
-                char_space.position.x = this_space.position.x;
-                char_space.move_down(line_height);
+                char_location.position.x = this_location.position.x;
+                char_location.move_down(line_height);
             }
 
             info.renderer.set_max_z_index(self.z_index);

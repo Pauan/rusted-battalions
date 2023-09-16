@@ -3,7 +3,7 @@ use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
     NodeHandle, MinSize, Location, Origin, Size, Offset, Percentage, Padding,
-    ScreenSpace, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
+    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
 };
 
 
@@ -149,13 +149,13 @@ impl NodeLayout for Column {
         }
     }
 
-    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &ScreenSpace, info: &mut SceneLayoutInfo<'a>) {
+    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
         // This is needed in order to calculate the min_height and stretch_children
         self.min_size(info);
 
-        let mut this_space = parent.modify(&self.location, &info.screen_size);
+        let mut this_location = parent.modify(&self.location, &info.screen_size);
 
-        let empty_space = (this_space.size.height - self.min_height).max(0.0);
+        let empty_space = (this_location.size.height - self.min_height).max(0.0);
 
         let stretch_height = empty_space / (self.stretch_children as f32);
 
@@ -165,13 +165,13 @@ impl NodeLayout for Column {
             if lock.is_visible() {
                 let max_z_index = info.renderer.get_max_z_index();
 
-                assert!(max_z_index >= this_space.z_index);
+                assert!(max_z_index >= this_location.z_index);
 
-                let child_space = if lock.is_stretch() {
-                    ScreenSpace {
-                        position: this_space.position,
+                let child_location = if lock.is_stretch() {
+                    RealLocation {
+                        position: this_location.position,
                         size: RealSize {
-                            width: this_space.size.width,
+                            width: this_location.size.width,
                             height: stretch_height,
                         },
                         z_index: max_z_index,
@@ -180,19 +180,19 @@ impl NodeLayout for Column {
                 } else {
                     let child_size = lock.min_size(info);
 
-                    ScreenSpace {
-                        position: this_space.position,
+                    RealLocation {
+                        position: this_location.position,
                         size: RealSize {
-                            width: this_space.size.width,
+                            width: this_location.size.width,
                             height: child_size.height,
                         },
                         z_index: max_z_index,
                     }
                 };
 
-                lock.update_layout(child, &child_space, info);
+                lock.update_layout(child, &child_location, info);
 
-                this_space.move_down(child_space.size.height);
+                this_location.move_down(child_location.size.height);
             }
         }
 

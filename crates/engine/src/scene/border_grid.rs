@@ -2,7 +2,7 @@ use futures_signals::signal::{Signal, SignalExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method};
 use crate::scene::{
     NodeHandle, MinSize, Location, Origin, Size, Offset, Padding, Length,
-    ScreenSpace, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize,
+    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize,
     RealSize, RealPosition,
 };
 
@@ -97,11 +97,11 @@ impl BorderGrid {
         }
     }
 
-    fn update_child<'a>(child: &Node, info: &mut SceneLayoutInfo<'a>, space: &ScreenSpace) {
+    fn update_child<'a>(child: &Node, info: &mut SceneLayoutInfo<'a>, location: &RealLocation) {
         let mut lock = child.handle.lock();
 
         if lock.is_visible() {
-            lock.update_layout(&child.handle, space, info);
+            lock.update_layout(&child.handle, location, info);
         }
     }
 
@@ -213,34 +213,34 @@ impl NodeLayout for BorderGrid {
         }
     }
 
-    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &ScreenSpace, info: &mut SceneLayoutInfo<'a>) {
+    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
         let quadrants = self.quadrants.as_ref().expect("Missing quadrants");
         let border_size = self.border_size.as_ref().expect("Missing border_size");
 
-        let this_space = parent.modify(&self.location, &info.screen_size);
+        let this_location = parent.modify(&self.location, &info.screen_size);
 
         let screen_width = info.screen_size.to_real_width();
         let screen_height = info.screen_size.to_real_height();
 
-        let size_left = border_size.left.to_screen_space(this_space.size, screen_width, info.screen_size.width);
-        let size_right = border_size.right.to_screen_space(this_space.size, screen_width, info.screen_size.width);
-        let size_up = border_size.up.to_screen_space(this_space.size, screen_height, info.screen_size.height);
-        let size_down = border_size.down.to_screen_space(this_space.size, screen_height, info.screen_size.height);
+        let size_left = border_size.left.to_screen_space(this_location.size, screen_width, info.screen_size.width);
+        let size_right = border_size.right.to_screen_space(this_location.size, screen_width, info.screen_size.width);
+        let size_up = border_size.up.to_screen_space(this_location.size, screen_height, info.screen_size.height);
+        let size_down = border_size.down.to_screen_space(this_location.size, screen_height, info.screen_size.height);
 
-        let position_left = this_space.position.x;
-        let position_right = position_left + (this_space.size.width - size_right).max(0.0);
+        let position_left = this_location.position.x;
+        let position_right = position_left + (this_location.size.width - size_right).max(0.0);
 
-        let position_up = this_space.position.y;
-        let position_down = position_up + (this_space.size.height - size_down).max(0.0);
+        let position_up = this_location.position.y;
+        let position_down = position_up + (this_location.size.height - size_down).max(0.0);
 
-        let center_width = (this_space.size.width - size_left - size_right).max(0.0);
-        let center_height = (this_space.size.height - size_up - size_down).max(0.0);
+        let center_width = (this_location.size.width - size_left - size_right).max(0.0);
+        let center_height = (this_location.size.height - size_up - size_down).max(0.0);
 
         let center_left = position_left + size_left;
         let center_up = position_up + size_up;
 
 
-        Self::update_child(&quadrants.up_left, info, &ScreenSpace {
+        Self::update_child(&quadrants.up_left, info, &RealLocation {
             position: RealPosition {
                 x: position_left,
                 y: position_up,
@@ -252,7 +252,7 @@ impl NodeLayout for BorderGrid {
             z_index: info.renderer.get_max_z_index(),
         });
 
-        Self::update_child(&quadrants.up, info, &ScreenSpace {
+        Self::update_child(&quadrants.up, info, &RealLocation {
             position: RealPosition {
                 x: center_left,
                 y: position_up,
@@ -264,7 +264,7 @@ impl NodeLayout for BorderGrid {
             z_index: info.renderer.get_max_z_index(),
         });
 
-        Self::update_child(&quadrants.up_right, info, &ScreenSpace {
+        Self::update_child(&quadrants.up_right, info, &RealLocation {
             position: RealPosition {
                 x: position_right,
                 y: position_up,
@@ -277,7 +277,7 @@ impl NodeLayout for BorderGrid {
         });
 
 
-        Self::update_child(&quadrants.left, info, &ScreenSpace {
+        Self::update_child(&quadrants.left, info, &RealLocation {
             position: RealPosition {
                 x: position_left,
                 y: center_up,
@@ -289,7 +289,7 @@ impl NodeLayout for BorderGrid {
             z_index: info.renderer.get_max_z_index(),
         });
 
-        Self::update_child(&quadrants.center, info, &ScreenSpace {
+        Self::update_child(&quadrants.center, info, &RealLocation {
             position: RealPosition {
                 x: center_left,
                 y: center_up,
@@ -301,7 +301,7 @@ impl NodeLayout for BorderGrid {
             z_index: info.renderer.get_max_z_index(),
         });
 
-        Self::update_child(&quadrants.right, info, &ScreenSpace {
+        Self::update_child(&quadrants.right, info, &RealLocation {
             position: RealPosition {
                 x: position_right,
                 y: center_up,
@@ -314,7 +314,7 @@ impl NodeLayout for BorderGrid {
         });
 
 
-        Self::update_child(&quadrants.down_left, info, &ScreenSpace {
+        Self::update_child(&quadrants.down_left, info, &RealLocation {
             position: RealPosition {
                 x: position_left,
                 y: position_down,
@@ -326,7 +326,7 @@ impl NodeLayout for BorderGrid {
             z_index: info.renderer.get_max_z_index(),
         });
 
-        Self::update_child(&quadrants.down, info, &ScreenSpace {
+        Self::update_child(&quadrants.down, info, &RealLocation {
             position: RealPosition {
                 x: center_left,
                 y: position_down,
@@ -338,7 +338,7 @@ impl NodeLayout for BorderGrid {
             z_index: info.renderer.get_max_z_index(),
         });
 
-        Self::update_child(&quadrants.down_right, info, &ScreenSpace {
+        Self::update_child(&quadrants.down_right, info, &RealLocation {
             position: RealPosition {
                 x: position_right,
                 y: position_down,

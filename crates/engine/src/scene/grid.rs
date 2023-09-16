@@ -3,7 +3,7 @@ use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method, children_methods};
 use crate::scene::{
     NodeHandle, MinSize, Location, Origin, Size, Offset, Padding, Length,
-    ScreenSpace, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize,
+    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize,
     RealSize,
 };
 
@@ -14,11 +14,11 @@ pub struct GridSize {
 }
 
 impl GridSize {
-    fn to_screen_space(&self, parent: &ScreenSpace, screen_size: &ScreenSize) -> ScreenSpace {
+    fn to_screen_space(&self, parent: &RealLocation, screen_size: &ScreenSize) -> RealLocation {
         let screen_width = screen_size.to_real_width();
         let screen_height = screen_size.to_real_height();
 
-        ScreenSpace {
+        RealLocation {
             position: parent.position,
             size: RealSize {
                 width: self.width.to_screen_space(parent.size, screen_width, screen_size.width),
@@ -92,17 +92,17 @@ impl NodeLayout for Grid {
         })
     }
 
-    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &ScreenSpace, info: &mut SceneLayoutInfo<'a>) {
+    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
         let grid_size = self.grid_size.as_ref().expect("Grid is missing grid_size");
 
-        let this_space = parent.modify(&self.location, &info.screen_size);
+        let this_location = parent.modify(&self.location, &info.screen_size);
 
-        let max_width = this_space.size.width;
+        let max_width = this_location.size.width;
 
-        let mut child_space = grid_size.to_screen_space(&this_space, &info.screen_size);
+        let mut child_location = grid_size.to_screen_space(&this_location, &info.screen_size);
 
-        let child_width = child_space.size.width;
-        let child_height = child_space.size.height;
+        let child_width = child_location.size.width;
+        let child_height = child_location.size.height;
 
         let mut width = 0.0;
 
@@ -114,19 +114,19 @@ impl NodeLayout for Grid {
 
                 if width > child_width && width > max_width {
                     width = child_width;
-                    child_space.position.x = this_space.position.x;
-                    child_space.move_down(child_height);
+                    child_location.position.x = this_location.position.x;
+                    child_location.move_down(child_height);
                 }
 
                 let max_z_index = info.renderer.get_max_z_index();
 
-                assert!(max_z_index >= this_space.z_index);
+                assert!(max_z_index >= this_location.z_index);
 
-                child_space.z_index = max_z_index;
+                child_location.z_index = max_z_index;
 
-                lock.update_layout(child, &child_space, info);
+                lock.update_layout(child, &child_location, info);
 
-                child_space.position.x = this_space.position.x + width;
+                child_location.position.x = this_location.position.x + width;
             }
         }
 

@@ -3,7 +3,7 @@ use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
     NodeHandle, MinSize, Location, Origin, Size, Offset, Padding,
-    ScreenSpace, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
+    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
 };
 
 
@@ -73,11 +73,11 @@ impl NodeLayout for Wrap {
         })
     }
 
-    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &ScreenSpace, info: &mut SceneLayoutInfo<'a>) {
-        let this_space = parent.modify(&self.location, &info.screen_size);
+    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
+        let this_location = parent.modify(&self.location, &info.screen_size);
 
         {
-            let max_width = this_space.size.width;
+            let max_width = this_location.size.width;
 
             let mut width = 0.0;
             let mut row = Row::new();
@@ -112,27 +112,27 @@ impl NodeLayout for Wrap {
         }
 
         {
-            let mut child_space = this_space;
+            let mut child_location = this_location;
 
             for row in self.rows.iter() {
-                child_space.size.height = row.height;
+                child_location.size.height = row.height;
 
                 for child in row.children.iter() {
-                    child_space.size.width = child.width;
+                    child_location.size.width = child.width;
 
                     let max_z_index = info.renderer.get_max_z_index();
 
-                    assert!(max_z_index >= this_space.z_index);
+                    assert!(max_z_index >= this_location.z_index);
 
-                    child_space.z_index = max_z_index;
+                    child_location.z_index = max_z_index;
 
-                    child.handle.lock().update_layout(&child.handle, &child_space, info);
+                    child.handle.lock().update_layout(&child.handle, &child_location, info);
 
-                    child_space.move_right(child.width);
+                    child_location.move_right(child.width);
                 }
 
-                child_space.position.x = this_space.position.x;
-                child_space.move_down(row.height);
+                child_location.position.x = this_location.position.x;
+                child_location.move_down(row.height);
             }
         }
 
