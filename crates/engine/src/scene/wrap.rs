@@ -2,7 +2,7 @@ use futures_signals::signal::{Signal, SignalExt};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
-    NodeHandle, MinSize, Location, Origin, Size, Offset, Padding,
+    NodeHandle, Location, Origin, Size, Offset, Padding,
     RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
 };
 
@@ -33,8 +33,10 @@ pub struct Wrap {
     stretch: bool,
     location: Location,
     children: Vec<NodeHandle>,
+
+    // Internal state
     rows: Vec<Row>,
-    min_size: Option<MinSize>,
+    min_size: Option<RealSize>,
 }
 
 impl Wrap {
@@ -45,6 +47,7 @@ impl Wrap {
             stretch: false,
             location: Location::default(),
             children: vec![],
+
             rows: vec![],
             min_size: None,
         }
@@ -67,49 +70,56 @@ impl NodeLayout for Wrap {
         self.stretch
     }
 
-    fn min_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> MinSize {
-        *self.min_size.get_or_insert_with(|| {
-            self.location.min_size(&info.screen_size)
-        })
+    fn min_size<'a>(&mut self, parent: &RealSize, info: &mut SceneLayoutInfo<'a>) -> RealSize {
+        if let Some(min_size) = self.min_size {
+            min_size
+
+        } else {
+            let min_size = self.location.children_size(parent, info, |child_parent, info| {
+                let max_width = child_parent.width;
+
+                let mut width = 0.0;
+                let mut row = Row::new();
+
+                for child in self.children.iter() {
+                    let mut lock = child.lock();
+
+                    if lock.is_visible() {
+                        let size = lock.min_size(child_parent, info);
+
+                        width += size.width;
+
+                        if width > size.width && width > max_width {
+                            self.rows.push(row);
+
+                            width = size.width;
+                            row = Row::new();
+                        }
+
+                        row.height = row.height.max(size.height);
+
+                        row.children.push(Child {
+                            width: size.width,
+                            handle: child.clone(),
+                        });
+                    }
+                }
+
+                if !row.children.is_empty() {
+                    self.rows.push(row);
+                }
+            });
+
+            self.min_size = Some(min_size);
+            min_size
+        }
     }
 
     fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
-        let this_location = parent.modify(&self.location, &info.screen_size);
+        // This is needed in order to calculate the rows
+        let children_min_size = self.min_size(&parent.size, info);
 
-        {
-            let max_width = this_location.size.width;
-
-            let mut width = 0.0;
-            let mut row = Row::new();
-
-            for child in self.children.iter() {
-                let mut lock = child.lock();
-
-                if lock.is_visible() {
-                    let size = lock.min_size(info);
-
-                    width += size.width;
-
-                    if width > size.width && width > max_width {
-                        self.rows.push(row);
-
-                        width = size.width;
-                        row = Row::new();
-                    }
-
-                    row.height = row.height.max(size.height);
-
-                    row.children.push(Child {
-                        width: size.width,
-                        handle: child.clone(),
-                    });
-                }
-            }
-
-            if !row.children.is_empty() {
-                self.rows.push(row);
-            }
-        }
+        let this_location = parent.modify(&self.location, &children_min_size, &info.screen_size);
 
         {
             let mut child_location = this_location;

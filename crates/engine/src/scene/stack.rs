@@ -2,7 +2,7 @@ use futures_signals::signal::{Signal, SignalExt};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
-    NodeHandle, MinSize, Location, Origin, Size, Offset, Padding,
+    NodeHandle, Location, Origin, Size, Offset, Padding,
     RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
 };
 
@@ -13,13 +13,17 @@ use crate::scene::{
 ///
 /// The children are all displayed on the same position as the stack.
 ///
-/// The children are ordered so that later children display on top of earlier children.
+/// # Sizing
+///
+/// * [`Length::ChildrenWidth`]: the maximum of all the children's width.
+///
+/// * [`Length::ChildrenHeight`]: the maximum of all the children's height.
 pub struct Stack {
     visible: bool,
     stretch: bool,
     location: Location,
     children: Vec<NodeHandle>,
-    min_size: Option<MinSize>,
+    min_size: Option<RealSize>,
 }
 
 impl Stack {
@@ -34,8 +38,8 @@ impl Stack {
         }
     }
 
-    fn children_min_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> MinSize {
-        let mut min_size = MinSize {
+    fn children_size<'a>(&mut self, parent: &RealSize, info: &mut SceneLayoutInfo<'a>) -> RealSize {
+        let mut min_size = RealSize {
             width: 0.0,
             height: 0.0,
         };
@@ -44,8 +48,10 @@ impl Stack {
             let mut child = child.lock();
 
             if child.is_visible() {
-                let child_size = child.min_size(info);
-                min_size = min_size.max(child_size);
+                let child_size = child.min_size(parent, info);
+
+                min_size.width = min_size.width.max(child_size.width);
+                min_size.height = min_size.height.max(child_size.height);
             }
         }
 
@@ -69,48 +75,42 @@ impl NodeLayout for Stack {
         self.stretch
     }
 
-    fn min_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> MinSize {
+    fn min_size<'a>(&mut self, parent: &RealSize, info: &mut SceneLayoutInfo<'a>) -> RealSize {
         if let Some(min_size) = self.min_size {
             min_size
 
         } else {
-            let fixed_width = self.location.size.width.is_fixed();
-            let fixed_height = self.location.size.height.is_fixed();
+            let min_size = self.location.min_size(parent, &info.screen_size);
 
-            let min_size = self.location.min_size(&info.screen_size);
+            let min_size = if min_size.width.is_err() || min_size.height.is_err() {
+                let child_parent = self.location.padding.children_size(parent, &min_size, &info.screen_size);
 
-            let new_size = if fixed_width && fixed_height {
-                min_size
+                let children_size = self.children_size(&child_parent, info);
+
+                let padding = self.location.padding.to_screen_space(parent, &children_size, &info.screen_size);
+
+                RealSize {
+                    width: min_size.width.unwrap_or_else(|| {
+                        children_size.width + padding.width
+                    }),
+                    height: min_size.height.unwrap_or_else(|| {
+                        children_size.height + padding.height
+                    }),
+                }
 
             } else {
-                let child_size = self.children_min_size(info);
-
-                let padding = self.location.padding.min_size(&child_size, &info.screen_size);
-
-                MinSize {
-                    width: if fixed_width {
-                        min_size.width
-
-                    } else {
-                        child_size.width + padding.width
-                    },
-
-                    height: if fixed_height {
-                        min_size.height
-
-                    } else {
-                        child_size.height + padding.height
-                    },
-                }
+                min_size.to_real_size()
             };
 
-            self.min_size = Some(new_size);
-            new_size
+            self.min_size = Some(min_size);
+            min_size
         }
     }
 
     fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
-        let mut this_location = parent.modify(&self.location, &info.screen_size);
+        let children_min_size = self.min_size(&parent.size, info);
+
+        let mut this_location = parent.modify(&self.location, &children_min_size, &info.screen_size);
 
         for child in self.children.iter() {
             let mut lock = child.lock();

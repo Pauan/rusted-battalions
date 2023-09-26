@@ -2,49 +2,47 @@ use futures_signals::signal::{Signal, SignalExt};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
-    NodeHandle, MinSize, Location, Origin, Size, Offset, Percentage, Padding,
-    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
+    NodeHandle, Location, Origin, Size, Offset, Percentage, Padding, SmallestSize,
+    SmallestLength, RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
 };
 
+
+struct Child {
+    width: SmallestLength,
+    handle: NodeHandle,
+}
 
 /// Displays children in a row from left-to-right.
 ///
 /// # Layout
 ///
-/// * If a child has `stretch(false)` then the child keeps its normal size.
+/// Children are shrunk horizontally as much as possible.
 ///
-/// * If a child has `stretch(true)` then the child's height is normal, but
-///    its width is expanded to fill the available empty space of the row.
+/// If a child has a width of [`Length::ParentWidth`] then it is expanded
+/// to fill the available empty space of the row.
 ///
-///    If there are multiple children with `stretch(true)` then the empty space
-///    is evenly distributed to each child.
+/// If there are multiple children with a width of [`Length::ParentWidth`]
+/// then the empty space is distributed to each child.
 ///
-/// ----
+/// The empty space is distributed as a ratio. For example, if one child has
+/// `Length::ParentWidth(2.0)` and another child has `Length::ParentWidth(1.0)`
+/// then the first child will be twice as wide as the second child.
 ///
-/// If the row has a fixed size ([`Length::Px`] or [`Length::Screen`])
-/// then the row is displayed with that size.
+/// # Sizing
 ///
-/// However, if the row has a dynamic size ([`Length::Parent`]) then the
-/// row's minimum size will be based on the children's size:
+/// * [`Length::SmallestWidth`]: the sum of all the children's smallest width.
 ///
-/// * The minimum width is based on the sum of all the non-stretch children's width.
-///
-/// * The minimum height is based on the maximum of all the children's height.
-///
-/// The final size of the row will depend on the row's parent:
-///
-/// * If the parent of the row is a [`Row`] or [`Column`] then the row's
-///   size is the same as the row's minimum size.
-///
-/// * Otherwise the row's size is the same as the parent's size.
+/// * [`Length::SmallestHeight`]: the maximum of all the children's smallest height.
 pub struct Row {
     visible: bool,
-    stretch: bool,
     location: Location,
     children: Vec<NodeHandle>,
-    stretch_children: usize,
+
+    // Internal state
+    computed_children: Vec<Child>,
+    ratio_sum: Percentage,
     min_width: Percentage,
-    min_size: Option<MinSize>,
+    smallest_size: Option<SmallestSize>,
 }
 
 impl Row {
@@ -52,49 +50,64 @@ impl Row {
     fn new() -> Self {
         Self {
             visible: true,
-            stretch: false,
             location: Location::default(),
             children: vec![],
-            stretch_children: 0,
+
+            computed_children: vec![],
+            ratio_sum: 0.0,
             min_width: 0.0,
-            min_size: None,
+            smallest_size: None,
         }
     }
 
-    fn children_min_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>, fixed_width: bool, fixed_height: bool) -> MinSize {
-        let mut min_size = MinSize {
-            width: 0.0,
-            height: 0.0,
-        };
+    fn children_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> RealSize {
+        debug_assert!(self.ratio_sum == 0.0);
+
+        let mut smallest_size = RealSize::zero();
+
+        self.computed_children.reserve(self.children.len());
 
         for child in self.children.iter() {
-            let mut child = child.lock();
+            let mut lock = child.lock();
 
-            if child.is_visible() {
-                let child_size = child.min_size(info);
+            if lock.is_visible() {
+                let child_size = lock.smallest_size(parent, info);
 
-                if child.is_stretch() {
-                    self.stretch_children += 1;
-
-                    if !fixed_height {
-                        min_size = min_size.max_height(child_size);
-                    }
-
-                } else {
-                    if !fixed_width {
-                        min_size.width += child_size.width;
-                    }
-
-                    if !fixed_height {
-                        min_size = min_size.max_height(child_size);
-                    }
+                match child_size.width {
+                    SmallestLength::Screen(x) => {
+                        smallest_size.width += x;
+                    },
+                    SmallestLength::ParentWidth(x) => {
+                        self.ratio_sum += x;
+                    },
+                    SmallestLength::ParentHeight(_) => {
+                        unimplemented!();
+                    },
+                    _ => internal_panic(),
                 }
+
+                match child_size.height {
+                    SmallestLength::Screen(x) => {
+                        smallest_size.height = smallest_size.height.max(x);
+                    },
+                    SmallestLength::ParentWidth(_) => {
+                        unimplemented!();
+                    },
+                    // ParentHeight is treated as 0.0
+                    SmallestLength::ParentHeight(_) => {},
+                    _ => internal_panic(),
+                }
+
+                self.computed_children.push(Child {
+                    width: child_size.width,
+                    handle: child.clone(),
+                });
             }
         }
 
-        self.min_width = min_size.width;
+        self.min_width = smallest_size.width;
 
-        min_size
+        smallest_size
     }
 }
 
@@ -109,96 +122,75 @@ impl NodeLayout for Row {
         self.visible
     }
 
-    #[inline]
-    fn is_stretch(&mut self) -> bool {
-        self.stretch
-    }
-
-    fn min_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> MinSize {
-        if let Some(min_size) = self.min_size {
-            min_size
+    fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
+        if let Some(smallest_size) = self.smallest_size {
+            smallest_size
 
         } else {
-            let fixed_width = self.location.size.width.is_fixed();
-            let fixed_height = self.location.size.height.is_fixed();
+            let size = self.location.size.smallest_size(parent, &info.screen_size);
+            let padding = self.location.padding.smallest_size(parent, &info.screen_size);
 
-            let min_size = self.children_min_size(info, fixed_width, fixed_height);
+            // Shrinks the children horizontally as much as possible.
+            size.width = SmallestLength::SmallestWidth(1.0);
 
-            let padding = self.location.padding.min_size(&min_size, &info.screen_size);
+            let smallest_size = size.with_padding(&padding, |parent| {
+                // This needs to always run even if the Row has a fixed size, because we need
+                // to calculate the min_width and ratio_sum.
+                self.children_size(parent, info)
+            });
 
-            let this_size = self.location.min_size(&info.screen_size);
-
-            let new_size = MinSize {
-                width: if fixed_width {
-                    this_size.width
-
-                } else {
-                    min_size.width + padding.width
-                },
-
-                height: if fixed_height {
-                    this_size.height
-
-                } else {
-                    min_size.height + padding.height
-                },
-            };
-
-            self.min_size = Some(new_size);
-            new_size
+            self.smallest_size = Some(smallest_size);
+            smallest_size
         }
     }
 
     fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
-        // This is needed in order to calculate the min_width and stretch_children
-        self.min_size(info);
+        let smallest_size = self.smallest_size(&parent.size.smallest_size(), info).unwrap();
 
-        let mut this_location = parent.modify(&self.location, &info.screen_size);
+        let mut this_location = self.location.children_location(parent, &smallest_size, &info.screen_size);
 
         let empty_space = (this_location.size.width - self.min_width).max(0.0);
 
-        let stretch_width = empty_space / (self.stretch_children as f32);
+        let stretch_percentage = empty_space * (1.0 / self.ratio_sum);
 
-        for child in self.children.iter() {
-            let mut lock = child.lock();
+        for child in self.computed_children.iter() {
+            let max_z_index = info.renderer.get_max_z_index();
 
-            if lock.is_visible() {
-                let max_z_index = info.renderer.get_max_z_index();
+            assert!(max_z_index >= this_location.z_index);
 
-                assert!(max_z_index >= this_location.z_index);
-
-                let child_location = if lock.is_stretch() {
-                    RealLocation {
-                        position: this_location.position,
-                        size: RealSize {
-                            width: stretch_width,
-                            height: this_location.size.height,
-                        },
-                        z_index: max_z_index,
+            let child_size = match child.width {
+                SmallestLength::Screen(width) => {
+                    RealSize {
+                        width: width,
+                        height: this_location.size.height,
                     }
-
-                } else {
-                    let child_size = lock.min_size(info);
-
-                    RealLocation {
-                        position: this_location.position,
-                        size: RealSize {
-                            width: child_size.width,
-                            height: this_location.size.height,
-                        },
-                        z_index: max_z_index,
+                },
+                SmallestLength::ParentWidth(width) => {
+                    RealSize {
+                        width: stretch_percentage * width,
+                        height: this_location.size.height,
                     }
-                };
+                },
+                SmallestLength::ParentHeight(_) => {
+                    unimplemented!();
+                },
+            };
 
-                lock.update_layout(child, &child_location, info);
+            let child_location = RealLocation {
+                position: this_location.position,
+                size: child_size,
+                z_index: max_z_index,
+            };
 
-                this_location.move_right(child_location.size.width);
-            }
+            child.handle.lock().update_layout(&child.handle, &child_location, info);
+
+            this_location.move_right(child_location.size.width);
         }
 
-        self.stretch_children = 0;
+        self.computed_children.clear();
+        self.ratio_sum = 0.0;
         self.min_width = 0.0;
-        self.min_size = None;
+        self.smallest_size = None;
     }
 
     fn render<'a>(&mut self, _info: &mut SceneRenderInfo<'a>) {}

@@ -4,29 +4,49 @@ use rusted_battalions_engine::{Length, Tile, Origin, Padding, Size, Node, Sprite
 pub use rusted_battalions_engine::{BorderSize, RepeatTile, Repeat};
 
 
-pub struct Quadrants {
-    pub up: Tile,
-    pub down: Tile,
-    pub left: Tile,
-    pub right: Tile,
-    pub center: Tile,
-    pub up_left: Tile,
-    pub up_right: Tile,
-    pub down_left: Tile,
-    pub down_right: Tile,
+pub struct QuadrantGrid {
+    pub start_x: u32,
+    pub start_y: u32,
+
+    pub up_height: u32,
+    pub down_height: u32,
+
+    pub left_width: u32,
+    pub right_width: u32,
+
+    pub center_width: u32,
+    pub center_height: u32,
 }
 
-impl Quadrants {
-    pub fn from_grid(start_x: u32, start_y: u32, tile_width: u32, tile_height: u32) -> Self {
+impl QuadrantGrid {
+    pub fn equal_size(start_x: u32, start_y: u32, tile_width: u32, tile_height: u32) -> Self {
+        Self {
+            start_x,
+            start_y,
+
+            up_height: tile_height,
+            down_height: tile_height,
+
+            left_width: tile_width,
+            right_width: tile_width,
+
+            center_width: tile_width,
+            center_height: tile_height,
+        }
+    }
+}
+
+impl From<QuadrantGrid> for Quadrants {
+    fn from(value: QuadrantGrid) -> Self {
         let x1 = start_x;
-        let x2 = start_x + tile_width;
-        let x3 = start_x + tile_width * 2;
-        let x4 = start_x + tile_width * 3;
+        let x2 = x1 + value.left_width;
+        let x3 = x2 + value.center_width;
+        let x4 = x3 + value.right_width;
 
         let y1 = start_y;
-        let y2 = start_y + tile_height;
-        let y3 = start_y + tile_height * 2;
-        let y4 = start_y + tile_height * 3;
+        let y2 = y1 + value.up_height;
+        let y3 = y2 + value.center_height;
+        let y4 = y3 + value.down_height;
 
         Self {
             up_left: Tile {
@@ -87,6 +107,19 @@ impl Quadrants {
             },
         }
     }
+}
+
+
+pub struct Quadrants {
+    pub up: Tile,
+    pub down: Tile,
+    pub left: Tile,
+    pub right: Tile,
+    pub center: Tile,
+    pub up_left: Tile,
+    pub up_right: Tile,
+    pub down_left: Tile,
+    pub down_right: Tile,
 }
 
 

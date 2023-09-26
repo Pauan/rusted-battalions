@@ -10,9 +10,9 @@ use crate::util::buffer::{
 };
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method};
 use crate::scene::{
-    Handle, Handles, Texture, MinSize, Location, Padding, Origin, Offset, Size, ScreenSize,
+    Handle, Handles, Texture, Location, Padding, Origin, Offset, Size, ScreenSize, SmallestSize,
     SceneLayoutInfo, SceneRenderInfo, RealLocation, NodeLayout,  NodeHandle, SceneUniform,
-    ScenePrerender, Prerender, Length, RealSize,
+    ScenePrerender, Prerender, Length, RealSize, ScreenLength,
 };
 
 
@@ -21,7 +21,13 @@ pub enum Repeat {
     /// Don't repeat, stretches to fill the entire sprite.
     None,
 
-    /// Repeats the tile every length (relative to the sprite's parent).
+    /// Repeats the tile every length.
+    ///
+    /// # Sizing
+    ///
+    /// * [`Length::SmallestWidth`]: the smallest width of the Sprite.
+    ///
+    /// * [`Length::SmallestHeight`]: the smallest height of the Sprite.
     Length(Length),
 
     /// Repeats the tile a certain number of times.
@@ -29,11 +35,13 @@ pub enum Repeat {
 }
 
 impl Repeat {
-    fn to_uv(&self, parent: RealSize, screen: RealSize, pixels: f32, distance: f32) -> f32 {
+    fn to_uv(&self, parent: &RealSize, smallest: &RealSize, screen: &ScreenLength, distance: f32) -> f32 {
         match self {
             Self::None => 1.0,
             Self::Length(length) => {
-                distance / length.to_screen_space(parent, screen, pixels)
+                let length = length.to_screen_space(parent, smallest, screen);
+
+                distance / length
             },
             Self::Count(count) => *count,
         }
@@ -57,13 +65,10 @@ pub struct RepeatTile {
 }
 
 impl RepeatTile {
-    fn to_uv(&self, this: RealSize, parent: RealSize, screen_size: &ScreenSize) -> [f32; 2] {
-        let screen_width = screen_size.to_real_width();
-        let screen_height = screen_size.to_real_height();
-
+    fn to_uv(&self, this: &RealSize, parent: &RealSize, smallest: &RealSize, screen: &ScreenSize) -> [f32; 2] {
         [
-            self.width.to_uv(parent, screen_width, screen_size.width, this.width),
-            self.height.to_uv(parent, screen_height, screen_size.height, this.height),
+            self.width.to_uv(parent, smallest, &screen.width, this.width),
+            self.height.to_uv(parent, smallest, &screen.height, this.height),
         ]
     }
 }
@@ -140,21 +145,27 @@ pub(crate) struct GPUPalette {
 }
 
 
+/// Displays a sprite from a spritesheet.
+///
+/// # Sizing
+///
+/// * [`Length::SmallestWidth`]: it is an error to use `SmallestWidth`.
+///
+/// * [`Length::SmallestHeight`]: it is an error to use `SmallestHeight`.
 pub struct Sprite {
+    visible: bool,
+    location: Location,
+    spritesheet: Option<Spritesheet>,
+    repeat_tile: RepeatTile,
+
     /// Whether any of the properties changed which require a re-render.
     render_changed: bool,
 
     /// Whether it needs to recalculate the location.
     location_changed: bool,
 
-    visible: bool,
-    stretch: bool,
-    location: Location,
-    spritesheet: Option<Spritesheet>,
-    repeat_tile: RepeatTile,
-
     parent_location: Option<RealLocation>,
-    min_size: Option<MinSize>,
+    smallest_size: Option<SmallestSize>,
 
     gpu_index: usize,
     gpu_sprite: GPUSprite,
@@ -165,16 +176,16 @@ impl Sprite {
     #[inline]
     fn new() -> Self {
         Self {
-            render_changed: false,
-            location_changed: false,
             visible: true,
-            stretch: false,
             location: Location::default(),
             spritesheet: None,
             repeat_tile: RepeatTile::default(),
 
+            render_changed: false,
+            location_changed: false,
+
             parent_location: None,
-            min_size: None,
+            smallest_size: None,
 
             gpu_index: 0,
             gpu_sprite: GPUSprite::default(),
@@ -182,12 +193,22 @@ impl Sprite {
         }
     }
 
-    fn update_gpu(&mut self, screen_size: &ScreenSize) {
+    fn location_changed(&mut self) {
+        self.location_changed = true;
+        self.smallest_size = None;
+        self.render_changed();
+    }
+
+    fn render_changed(&mut self) {
+        self.render_changed = true;
+    }
+
+    fn update_gpu(&mut self, smallest: &RealSize, screen: &ScreenSize) {
         let parent = self.parent_location.as_ref().unwrap();
 
-        let location = parent.modify(&self.location, &screen_size);
+        let location = self.location.children_location(parent, smallest, screen);
 
-        self.gpu_sprite.uv = self.repeat_tile.to_uv(location.size, parent.size, screen_size);
+        self.gpu_sprite.uv = self.repeat_tile.to_uv(&location.size, &parent.size, smallest, screen);
 
         self.gpu_sprite.update(&location);
     }
@@ -197,8 +218,7 @@ make_builder!(Sprite, SpriteBuilder);
 base_methods!(Sprite, SpriteBuilder);
 
 location_methods!(Sprite, SpriteBuilder, false, |state| {
-    state.render_changed = true;
-    state.location_changed = true;
+    state.location_changed();
 });
 
 impl SpriteBuilder {
@@ -227,7 +247,7 @@ impl SpriteBuilder {
                 value.end_y,
             ];
 
-            state.render_changed = true;
+            state.render_changed();
         },
     );
 
@@ -239,8 +259,7 @@ impl SpriteBuilder {
         true,
         |state, value: RepeatTile| {
             state.repeat_tile = value;
-            state.render_changed = true;
-            state.location_changed = true;
+            state.location_changed();
         },
     );
 
@@ -252,7 +271,7 @@ impl SpriteBuilder {
         true,
         |state, value: u32| {
             state.gpu_palette.palette = value;
-            state.render_changed = true;
+            state.render_changed();
         },
     );
 }
@@ -263,14 +282,13 @@ impl NodeLayout for Sprite {
         self.visible
     }
 
-    #[inline]
-    fn is_stretch(&mut self) -> bool {
-        self.stretch
-    }
-
-    fn min_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> MinSize {
-        *self.min_size.get_or_insert_with(|| {
-            self.location.min_size(&info.screen_size)
+    fn smallest_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
+        *self.smallest_size.get_or_insert_with(|| {
+            self.location.size
+                .smallest_size(&info.screen_size)
+                .smallest_to_screen(|smallest_size| {
+                    smallest_size.unwrap()
+                })
         })
     }
 
@@ -279,7 +297,9 @@ impl NodeLayout for Sprite {
         self.location_changed = false;
         self.parent_location = Some(*parent);
 
-        self.update_gpu(&info.screen_size);
+        let smallest = self.smallest_size(info).to_real_size();
+
+        self.update_gpu(&smallest, &info.screen_size);
 
         info.renderer.set_max_z_index(self.gpu_sprite.z_index);
 
@@ -299,8 +319,6 @@ impl NodeLayout for Sprite {
         }
 
         info.rendered_nodes.push(handle.clone());
-
-        self.min_size = None;
     }
 
     fn render<'a>(&mut self, info: &mut SceneRenderInfo<'a>) {
@@ -310,7 +328,9 @@ impl NodeLayout for Sprite {
             if self.location_changed {
                 self.location_changed = false;
 
-                self.update_gpu(&info.screen_size);
+                let smallest = self.smallest_size.as_ref().unwrap().to_real_size();
+
+                self.update_gpu(&smallest, &info.screen_size);
             }
 
             let spritesheet = self.spritesheet.as_ref().expect("Sprite is missing spritesheet");

@@ -11,9 +11,9 @@ use dominator::clone;
 use rusted_battalions_engine as engine;
 use rusted_battalions_engine::{
     Engine, EngineSettings, Spritesheet, SpritesheetSettings, RgbaImage,
-    GrayscaleImage, IndexedImage, Texture, Node, BitmapFont,
+    GrayscaleImage, IndexedImage, Texture, Node, BitmapFont, Offset,
     CharSize, ColorRgb, BitmapText, BitmapFontSettings, BitmapFontSupported,
-    ParentWidth, ParentHeight, Px, ScreenHeight, RepeatTile, Repeat,
+    ParentWidth, ParentHeight, Px, ScreenHeight, RepeatTile, Repeat, Zero,
 };
 
 use crate::util::future::executor;
@@ -142,29 +142,35 @@ impl Game {
                     builder
                         .offset(engine::Offset {
                             x: ParentWidth(0.04),
-                            y: ParentHeight(0.09),
+                            y: ParentHeight(0.3),
                         })
-                        .size(engine::Size {
+                        /*.size(engine::Size {
                             width: ParentWidth(0.2),
                             //width: Px(832),
                             height: ParentHeight(0.2),
-                        })
+                        })*/
                 })
 
                 .spritesheet(this.spritesheets.hud.clone())
 
                 .repeat_tile(RepeatTile {
-                    width: Repeat::Length(Px(16)),
-                    height: Repeat::Length(Px(16)),
+                    width: Repeat::Length(Px(32)),
+                    height: Repeat::Length(Px(32)),
                 })
 
                 .border_size(ui::BorderSize::all(Px(32)))
 
-                .quadrants(ui::Quadrants::from_grid(0, 0, 16, 16))
+                //.quadrants(ui::Quadrants::from_grid(0, 0, 16, 16))
+                .quadrants(ui::Quadrants::from_grid(0, 48, 16, 16))
 
                 .center(BitmapText::builder()
-                    .text("This is a UI dialog box.\n\nHello world!".into())
+                    //.text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello there world.\nHow's it going.\nT\u{031A}e\u{0303}s\u{0309}t\u{0310}i\u{1AB4}n\u{20DD}g  o\u{0489}\n\u{0000}\u{0000}\u{0000}\u{0000}T\u{0000}e\u{0000}s\u{0000}t\u{0000}i\u{0000}n\u{0000}g\n\nH̶̢̜̣̰̮͔̜̞͕̖̤͈̒͋͊̇̆̓͗͘ę̶̛͉͎̲̙͈͛̆̇̐̍̓͝͝ͅļ̵̰͓̗̩͎̈̓̎͗̈̇̓̀̀̓͘l̶̡̧̧̛̝͈̻͎̱̰̘͚̪̝̰̫̠̼͔̥̝͚͉̻̙̰̟̫͍̫̳̟̟͕̪̝͚̀́̆̓̉̒̓̈̿͌̀̃͑̚͘ͅͅǫ̵̨̢̢̡̛̙̼̤͍̩̘̬̟̞̹͔͕͙̠͉̟̥̲̝̙̥̺͉͇͓̱̗͖͖͔͍̪̰̳̳̩̠̿̇̍̐̈́́͌̓̀̊́̑̈́̈̊̋̃͛̇̃̍̇͌̆́͜͜͜͜͜͝ ̶̛̫̭͈͎̆̍̌̎̄͌̂̋̉̈́́̀͌́̐̆̓͊̽̉̎́̌̆̾̽͌́̕͘͘͘͘͘͜ẗ̴̘̙̜̤̳̺́̍̃̿̆̌̊͒̀̾̍̋̄̍̇͆͂̀͋̏̈̓̓͘͘͝͝h̵̨̪͓̯̫̯̥͇̭̭̱͉̯̮̻͙̘̻̩̠͉̥̰̟̰̗̠͕̘͈̘͎͉̜̞̤̪͖̍͂͂̋̀̃́̍̍̊̾̊̆̃͂̃̆̊̈́̔̐̽̓͘͘̕̚͘͜͝͝e̴̠̘̹͍̝̐́̂̕͝͠r̴̨̢̨̨̡̤̰͔̬̘͉̩̺̭͓̦̠̞̺͇̲̭̉͆͆͗̅̉̉̾̐̐̈́́̉͛̾͌͗͑́͋̎͗́̑͘̚̕͠͠͝͝ͅȩ̸̧̛̛̳̤̞͇̄̀̀͒̾̾͗͋̓̄̽̃͂̓͑͛̈͋̾̈́̊̔̕̕͝͝ ̶̧̡̗̳̗̳͋̈́͋̅̆͛͗͌̆̆͂̿͌͐͒͑͆m̴̧̢̢̛͎͉̩̺̥̲̺͙͎̱̱̖̼̪͍̪̱̬̩̮̞̲͈̫̭͕̗͈͉̥̙̣̺̻̩̯̪̒̆̈́̂̈́̀͊̑̅͂̀͂͊͑̽̽̃́͛̽̿͗̀̈́̀̓̈́̕͘͘̕͜͜͠ͅy̷̧͍͉̲̟̙͉͍̍̂̍͋̾̈́̋̒͌́̿̏͒̒́̊̈́͆̒́̊̆̈̀̎͛̏̆̈́̓̓̒̆͘̕͠͝ ̵̛͓̲̠͖̠̞͂̓̈͆͆̈́̇̇̄͒͋͑̉̏̈́̓́͐̅͐̉̃̃̚̕͘f̴̧̨̩̱̖̜͔̜̣͎̜͖̰̦͈̞̳̥͙̺̜̺̻̳̦̗̜̣͔̘̲̻̩̙̫̱͆̃͊̓͌̈́͊̂̌̊͐͊̂̋̑̂͗͑͜ͅŗ̵̮̺̱͔͖͖̖̲̯͚̬̰͎̜̺̫̠̮̺̰̮͖̳̜̈́̓̇̈́̓͊͋̓̈̀͌͊̆̈̂͑́̊̕͝í̸̢̡̨̢̡̡͇̪̗̬̹̺̝̪͍͙̻̯̲̮͔̼̟̰̞̱̩̱͉̭̹̬͚̼̮͎͚̙̤̱̰̙̯̩̼̬̊̋̓̏̅̒̔͋͑̿̀͛͊͒͌̄̔̉͠ͅͅê̷̛̘̣̞̮͉͙̣̘̦̝̯̰̠͉͉̖̞̘̰͕̻̯̰͖͙̜͖̮͉̖̪̲̪̩͇̥̠͎̲̜͓͈̥̋̈́̄͛͗̈́̿̀͌͘͜͜͠ͅͅͅñ̷̨̡̧̗̣̣̠̥̺̫͓̹̲͓̮̜͕̯̦͚͓̝̩̲͕̳̹͓̻̝̺̼͇̟̜̙̬̤͚̭̠̪̼̫̣̬͈̎̆̒̅͋͛̃͐͌͒̏̃͊̕͜͜ͅd̵̢̧̡̛͚͕͍͖̯̝̦̠̬̬̺̩̯̜̠̱̥̤̼͖̪͙̪̩̼̠͚̘͍̎̏̃.̸̨̩̖̱̭̯̤͔͓͎̙̼̲̮͍͉̦͓͙̠̦̲͈̯͉̯̱̲͙̤̳͍̏̽̂̂͊̈̀̇̐̉́̀̑͑́̌̈́̾̇̏̈͒̊̉̾̀̓̀̋͆͗͌̌̊͐͋̀̈́̀͑̐͋̾͊̚͜͠ͅͅ".into())
+                    .text("This is a UI dialog box.\n\nHello world!\n\nGoodbye world!".into())
                     .font(this.fonts.unifont.clone())
+                    .offset(Offset {
+                        x: Zero,
+                        y: Px(-2),
+                    })
                     .char_size(CharSize {
                         width: Px(16),
                         height: Px(32),
@@ -179,7 +185,7 @@ impl Game {
                     .build())
 
                 /*.center(BitmapText::builder()
-                    .text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello there world.\nHow's it going.\nT\u{031A}e\u{0303}s\u{0309}t\u{0310}i\u{1AB4}n\u{20DD}g  o\u{0489}\n\u{0000}\u{0000}\u{0000}\u{0000}T\u{0000}e\u{0000}s\u{0000}t\u{0000}i\u{0000}n\u{0000}g\n\nH̶̢̜̣̰̮͔̜̞͕̖̤͈̒͋͊̇̆̓͗͘ę̶̛͉͎̲̙͈͛̆̇̐̍̓͝͝ͅļ̵̰͓̗̩͎̈̓̎͗̈̇̓̀̀̓͘l̶̡̧̧̛̝͈̻͎̱̰̘͚̪̝̰̫̠̼͔̥̝͚͉̻̙̰̟̫͍̫̳̟̟͕̪̝͚̀́̆̓̉̒̓̈̿͌̀̃͑̚͘ͅͅǫ̵̨̢̢̡̛̙̼̤͍̩̘̬̟̞̹͔͕͙̠͉̟̥̲̝̙̥̺͉͇͓̱̗͖͖͔͍̪̰̳̳̩̠̿̇̍̐̈́́͌̓̀̊́̑̈́̈̊̋̃͛̇̃̍̇͌̆́͜͜͜͜͜͝ ̶̛̫̭͈͎̆̍̌̎̄͌̂̋̉̈́́̀͌́̐̆̓͊̽̉̎́̌̆̾̽͌́̕͘͘͘͘͘͜ẗ̴̘̙̜̤̳̺́̍̃̿̆̌̊͒̀̾̍̋̄̍̇͆͂̀͋̏̈̓̓͘͘͝͝h̵̨̪͓̯̫̯̥͇̭̭̱͉̯̮̻͙̘̻̩̠͉̥̰̟̰̗̠͕̘͈̘͎͉̜̞̤̪͖̍͂͂̋̀̃́̍̍̊̾̊̆̃͂̃̆̊̈́̔̐̽̓͘͘̕̚͘͜͝͝e̴̠̘̹͍̝̐́̂̕͝͠r̴̨̢̨̨̡̤̰͔̬̘͉̩̺̭͓̦̠̞̺͇̲̭̉͆͆͗̅̉̉̾̐̐̈́́̉͛̾͌͗͑́͋̎͗́̑͘̚̕͠͠͝͝ͅȩ̸̧̛̛̳̤̞͇̄̀̀͒̾̾͗͋̓̄̽̃͂̓͑͛̈͋̾̈́̊̔̕̕͝͝ ̶̧̡̗̳̗̳͋̈́͋̅̆͛͗͌̆̆͂̿͌͐͒͑͆m̴̧̢̢̛͎͉̩̺̥̲̺͙͎̱̱̖̼̪͍̪̱̬̩̮̞̲͈̫̭͕̗͈͉̥̙̣̺̻̩̯̪̒̆̈́̂̈́̀͊̑̅͂̀͂͊͑̽̽̃́͛̽̿͗̀̈́̀̓̈́̕͘͘̕͜͜͠ͅy̷̧͍͉̲̟̙͉͍̍̂̍͋̾̈́̋̒͌́̿̏͒̒́̊̈́͆̒́̊̆̈̀̎͛̏̆̈́̓̓̒̆͘̕͠͝ ̵̛͓̲̠͖̠̞͂̓̈͆͆̈́̇̇̄͒͋͑̉̏̈́̓́͐̅͐̉̃̃̚̕͘f̴̧̨̩̱̖̜͔̜̣͎̜͖̰̦͈̞̳̥͙̺̜̺̻̳̦̗̜̣͔̘̲̻̩̙̫̱͆̃͊̓͌̈́͊̂̌̊͐͊̂̋̑̂͗͑͜ͅŗ̵̮̺̱͔͖͖̖̲̯͚̬̰͎̜̺̫̠̮̺̰̮͖̳̜̈́̓̇̈́̓͊͋̓̈̀͌͊̆̈̂͑́̊̕͝í̸̢̡̨̢̡̡͇̪̗̬̹̺̝̪͍͙̻̯̲̮͔̼̟̰̞̱̩̱͉̭̹̬͚̼̮͎͚̙̤̱̰̙̯̩̼̬̊̋̓̏̅̒̔͋͑̿̀͛͊͒͌̄̔̉͠ͅͅê̷̛̘̣̞̮͉͙̣̘̦̝̯̰̠͉͉̖̞̘̰͕̻̯̰͖͙̜͖̮͉̖̪̲̪̩͇̥̠͎̲̜͓͈̥̋̈́̄͛͗̈́̿̀͌͘͜͜͠ͅͅͅñ̷̨̡̧̗̣̣̠̥̺̫͓̹̲͓̮̜͕̯̦͚͓̝̩̲͕̳̹͓̻̝̺̼͇̟̜̙̬̤͚̭̠̪̼̫̣̬͈̎̆̒̅͋͛̃͐͌͒̏̃͊̕͜͜ͅd̵̢̧̡̛͚͕͍͖̯̝̦̠̬̬̺̩̯̜̠̱̥̤̼͖̪͙̪̩̼̠͚̘͍̎̏̃.̸̨̩̖̱̭̯̤͔͓͎̙̼̲̮͍͉̦͓͙̠̦̲͈̯͉̯̱̲͙̤̳͍̏̽̂̂͊̈̀̇̐̉́̀̑͑́̌̈́̾̇̏̈͒̊̉̾̀̓̀̋͆͗͌̌̊͐͋̀̈́̀͑̐͋̾͊̚͜͠ͅͅ".into())
+
                     .font(this.fonts.unifont.clone())
                     .char_size(CharSize {
                         width: Px(32),

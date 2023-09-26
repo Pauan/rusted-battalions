@@ -25,18 +25,90 @@ impl BorderSize {
         }
     }
 
-    fn min_size(&self, screen_size: &ScreenSize) -> MinSize {
+    /// Calculates the size of the BorderSize
+    // TODO code duplication with Padding::children_size
+    fn min_size(&self, parent: &MinSize, screen_size: &ScreenSize) -> RealSize {
         let screen_width = screen_size.to_real_width();
         let screen_height = screen_size.to_real_height();
 
-        MinSize {
-            width:
-                self.left.min_length(screen_width, screen_size.width) +
-                self.right.min_length(screen_width, screen_size.width),
-            height:
-                self.up.min_length(screen_height, screen_size.height) +
-                self.down.min_length(screen_height, screen_size.height),
+        let mut width = 0.0;
+        let mut height = 0.0;
+
+        let mut width_ratio = 1.0;
+        let mut height_ratio = 1.0;
+
+        let mut cross_width_ratio = 0.0;
+        let mut cross_height_ratio = 0.0;
+
+        match self.left.min_length(parent, &screen_width, screen.width) {
+            MinLength::Screen(x) => {
+                width += x;
+            },
+            MinLength::ChildrenWidth(x) => {
+                width_ratio += x;
+            },
+            MinLength::ChildrenHeight(x) => {
+                cross_width_ratio += x;
+            },
         }
+
+        match self.right.min_length(parent, &screen_width, screen.width) {
+            MinLength::Screen(x) => {
+                width += x;
+            },
+            MinLength::ChildrenWidth(x) => {
+                width_ratio += x;
+            },
+            MinLength::ChildrenHeight(x) => {
+                cross_width_ratio += x;
+            },
+        }
+
+        match self.up.min_length(parent, &screen_height, screen.height) {
+            MinLength::Screen(x) => {
+                height += x;
+            },
+            MinLength::ChildrenWidth(x) => {
+                cross_height_ratio += x;
+            },
+            MinLength::ChildrenHeight(x) => {
+                height_ratio += x;
+            },
+        }
+
+        match self.down.min_length(parent, &screen_height, screen.height) {
+            MinLength::Screen(x) => {
+                height += x;
+            },
+            MinLength::ChildrenWidth(x) => {
+                cross_height_ratio += x;
+            },
+            MinLength::ChildrenHeight(x) => {
+                height_ratio += x;
+            },
+        }
+
+        let parent = parent.to_real_size();
+
+        if cross_width_ratio != 0.0 {
+            if cross_height_ratio != 0.0 {
+                panic!("BorderSize has conflicting recursive ChildrenWidth and ChildrenHeight");
+
+            } else {
+                width += (parent.height - height).max(0.0) * cross_width_ratio;
+            }
+
+        } else if cross_height_ratio != 0.0 {
+            height += (parent.width - width).max(0.0) * cross_height_ratio;
+        }
+
+        width += (parent.width - width).max(0.0) * (1.0 - (1.0 / width_ratio));
+        height += (parent.height - height).max(0.0) * (1.0 - (1.0 / height_ratio));
+
+        debug_assert!(width >= 0.0);
+        debug_assert!(height >= 0.0);
+
+        RealSize { width, height }
     }
 }
 
@@ -81,7 +153,7 @@ pub struct BorderGrid {
     location: Location,
     quadrants: Option<Quadrants>,
     border_size: Option<BorderSize>,
-    min_size: Option<MinSize>,
+    min_size: Option<RealSize>,
 }
 
 impl BorderGrid {
@@ -104,33 +176,6 @@ impl BorderGrid {
             lock.update_layout(&child.handle, location, info);
         }
     }
-
-    /*fn children_min_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> MinSize {
-        let quadrants = self.quadrants.expect("Missing quadrants");
-
-        let up_left    = quadrants.up_left.min_size(info);
-        let up         = quadrants.up.min_size(info);
-        let up_right   = quadrants.up_right.min_size(info);
-
-        let left       = quadrants.left.min_size(info);
-        let center     = quadrants.center.min_size(info);
-        let right      = quadrants.right.min_size(info);
-
-        let down_left  = quadrants.down_left.min_size(info);
-        let down       = quadrants.down.min_size(info);
-        let down_right = quadrants.down_right.min_size(info);
-
-
-        min_size = min_size.max_width(up_left.width + up_right.width);
-        min_size = min_size.max_width(left.width + right.width);
-        min_size = min_size.max_width(down_left.width + down_right.width);
-
-        min_size = min_size.max_height(up_left.height + down_left.height);
-        min_size = min_size.max_height(up.height + down.height);
-        min_size = min_size.max_height(up_right.height + down_right.height);
-
-        min_size
-    }*/
 }
 
 make_builder!(BorderGrid, BorderGridBuilder);
@@ -140,6 +185,7 @@ location_methods!(BorderGrid, BorderGridBuilder, true);
 impl BorderGridBuilder {
     /// Sets the [`Quadrants`] for the border grid.
     pub fn quadrants(mut self, mut quadrants: Quadrants) -> Self {
+        // TODO handle this better
         for quadrant in quadrants.iter_mut() {
             self.callbacks.transfer(&mut quadrant.callbacks);
         }
@@ -171,53 +217,57 @@ impl NodeLayout for BorderGrid {
         self.stretch
     }
 
-    fn min_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> MinSize {
+    fn min_size<'a>(&mut self, parent: &MinSize, info: &mut SceneLayoutInfo<'a>) -> RealSize {
         if let Some(min_size) = self.min_size {
             min_size
 
         } else {
-            let fixed_width = self.location.size.width.is_fixed();
-            let fixed_height = self.location.size.height.is_fixed();
+            let quadrants = self.quadrants.as_ref().expect("BorderGrid is missing quadrants");
+            let border_size = self.border_size.as_ref().expect("BorderGrid is missing border_size");
 
-            let min_size = self.location.min_size(&info.screen_size);
+            let min_size = self.location.min_size(parent, &info.screen_size);
 
-            let new_size = if fixed_width && fixed_height {
-                min_size
+            let min_size = if min_size.width.is_err() || min_size.height.is_err() {
+                let child_parent = self.location.padding.children_size(parent, &min_size, &info.screen_size);
+
+                let border_size = border_size.min_size(&child_parent, &info.screen_size);
+
+                let center_parent = RealSize {
+                    width: (child_parent.width - border_size.width).max(0.0),
+                    height: (child_parent.height - border_size.height).max(0.0),
+                };
+
+                let center_size = quadrants.center.handle.lock().min_size(&center_parent, info);
+
+                let children_size = border_size + center_size;
+
+                let padding = self.location.padding.to_screen_space(parent, &children_size, &info.screen_size);
+
+                RealSize {
+                    width: min_size.width.unwrap_or_else(|| {
+                        children_size.width + padding.width
+                    }),
+                    height: min_size.height.unwrap_or_else(|| {
+                        children_size.height + padding.height
+                    }),
+                }
 
             } else {
-                let border_size = self.border_size.as_ref().expect("Missing border_size");
-
-                let child_size = border_size.min_size(&info.screen_size);
-
-                let padding = self.location.padding.min_size(&child_size, &info.screen_size);
-
-                MinSize {
-                    width: if fixed_width {
-                        min_size.width
-
-                    } else {
-                        child_size.width + padding.width
-                    },
-
-                    height: if fixed_height {
-                        min_size.height
-
-                    } else {
-                        child_size.height + padding.height
-                    },
-                }
+                min_size.to_real_size()
             };
 
-            self.min_size = Some(new_size);
-            new_size
+            self.min_size = Some(min_size);
+            min_size
         }
     }
 
     fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
-        let quadrants = self.quadrants.as_ref().expect("Missing quadrants");
-        let border_size = self.border_size.as_ref().expect("Missing border_size");
+        let quadrants = self.quadrants.as_ref().expect("BorderGrid is missing quadrants");
+        let border_size = self.border_size.as_ref().expect("BorderGrid is missing border_size");
 
-        let this_location = parent.modify(&self.location, &info.screen_size);
+        let children_min_size = self.min_size(&parent.size, info);
+
+        let this_location = parent.modify(&self.location, &children_min_size, &info.screen_size);
 
         let screen_width = info.screen_size.to_real_width();
         let screen_height = info.screen_size.to_real_height();

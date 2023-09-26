@@ -3,7 +3,7 @@ use futures::future::{AbortHandle, Abortable};
 use std::future::Future;
 
 use crate::util::{Arc, Lock};
-use crate::scene::{SceneChanged, NodeHandle, MinSize, NodeLayout, RealLocation, SceneLayoutInfo, SceneRenderInfo};
+use crate::scene::{SceneChanged, NodeHandle, SmallestSize, NodeLayout, RealLocation, SceneLayoutInfo, SceneRenderInfo};
 
 
 pub(crate) struct Callbacks {
@@ -182,21 +182,12 @@ impl NodeLayout for OptionNode {
         }
     }
 
-    fn is_stretch(&mut self) -> bool {
+    fn smallest_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
         if let Some(child) = &self.child {
-            child.handle.lock().is_stretch()
+            child.handle.lock().smallest_size(info)
 
         } else {
-            false
-        }
-    }
-
-    fn min_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> MinSize {
-        if let Some(child) = &self.child {
-            child.handle.lock().min_size(info)
-
-        } else {
-            MinSize { width: 0.0, height: 0.0 }
+            SmallestSize::zero()
         }
     }
 
@@ -343,20 +334,9 @@ macro_rules! base_methods {
             }
 
             $crate::scene::builder::simple_method!(
-                /// If it isn't visible then it's treated as if it doesn't exist.
+                /// If the node isn't visible then it's treated as if it doesn't exist.
                 ///
                 /// The default is `true`, which means it is visible.
-                stretch,
-                stretch_signal,
-                true,
-                true,
-                |state, value: bool| { state.stretch = value; },
-            );
-
-            $crate::scene::builder::simple_method!(
-                /// If the parent is a [`Row`] or [`Column`] then it will stretch to fill the available space.
-                ///
-                /// The default is `false`, which means it does not stretch.
                 visible,
                 visible_signal,
                 true,
@@ -377,9 +357,9 @@ macro_rules! location_methods {
     ($name:ident, $builder_name:ident, $trigger_relayout:literal, |$var:ident| $body:block) => {
         impl $builder_name {
             $crate::scene::builder::simple_method!(
-                /// Offset x / y (relative to the parent's width / height) which is added to the parent's x / y.
+                /// Offset x / y which is added to the parent's x / y.
                 ///
-                /// The default is `{ x: Length::Parent(0.0), y: Length::Parent(0.0) }` which means no offset.
+                /// The default is `{ x: Length::Zero, y: Length::Zero }` which means no offset.
                 offset,
                 offset_signal,
                 $trigger_relayout,
@@ -393,10 +373,10 @@ macro_rules! location_methods {
             );
 
             $crate::scene::builder::simple_method!(
-                /// Width / height relative to the parent's width / height.
+                /// Width / height of the node.
                 ///
-                /// The default is `{ width: Length::Parent(1.0), height: Length::Parent(1.0) }`
-                /// which means it's the same size as its parent.
+                /// The default is `{ width: Length::ParentWidth(1.0), height: Length::ParentHeight(1.0) }`
+                /// which means it's the same size as the parent space.
                 size,
                 size_signal,
                 true,
@@ -409,8 +389,8 @@ macro_rules! location_methods {
             $crate::scene::builder::simple_method!(
                 /// Empty space around the node.
                 ///
-                /// The padding does not increase the size, instead the
-                /// empty space is created by subtracting from the size.
+                /// The padding does not increase the size, instead the empty
+                /// space is created by subtracting from the node's size.
                 ///
                 /// The default is no padding.
                 padding,
@@ -426,15 +406,15 @@ macro_rules! location_methods {
             );
 
             $crate::scene::builder::simple_method!(
-                /// Position relative to the parent.
+                /// Position relative to the parent space.
                 ///
                 /// By default, the origin is `{ x: 0.0, y: 0.0 }` which means that it will be
-                /// positioned in the upper-left corner of the parent.
+                /// positioned in the upper-left corner of the parent space.
                 ///
                 /// But if you change it to `{ x: 1.0, y: 1.0 }` then it will now be positioned
-                /// in the lower-right corner of the parent.
+                /// in the lower-right corner of the parent space.
                 ///
-                /// And `{ x: 0.5, y: 0.5 }` will place it in the center of the parent.
+                /// And `{ x: 0.5, y: 0.5 }` will place it in the center of the parent space.
                 origin,
                 origin_signal,
                 $trigger_relayout,
@@ -448,7 +428,7 @@ macro_rules! location_methods {
             );
 
             $crate::scene::builder::simple_method!(
-                /// Z-index relative to the parent.
+                /// Z-index of the node.
                 ///
                 /// Nodes with higher z-index will display on top of nodes with a lower z-index.
                 ///
