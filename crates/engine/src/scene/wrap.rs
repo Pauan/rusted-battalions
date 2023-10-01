@@ -2,13 +2,14 @@ use futures_signals::signal::{Signal, SignalExt};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
-    NodeHandle, Location, Origin, Size, Offset, Padding,
-    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
+    NodeHandle, Location, Origin, Size, Offset, Padding, SmallestSize, SmallestLength,
+    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
 };
 
 
 struct Child {
     width: f32,
+    size: SmallestSize,
     handle: NodeHandle,
 }
 
@@ -28,15 +29,17 @@ impl Row {
 
 
 /// Displays children in a row, wrapping to the next row when running out of space.
+///
+/// # Layout
+///
+/// Children are shrunk horizontally and vertically as much as possible.
 pub struct Wrap {
     visible: bool,
-    stretch: bool,
     location: Location,
     children: Vec<NodeHandle>,
 
     // Internal state
     rows: Vec<Row>,
-    min_size: Option<RealSize>,
 }
 
 impl Wrap {
@@ -44,13 +47,63 @@ impl Wrap {
     fn new() -> Self {
         Self {
             visible: true,
-            stretch: false,
             location: Location::default(),
             children: vec![],
 
             rows: vec![],
-            min_size: None,
         }
+    }
+
+    fn children_size<'a>(&mut self, mut parent: SmallestSize, info: &mut SceneLayoutInfo<'a>) -> RealSize {
+        let mut min_size = RealSize::zero();
+
+        let max_width = parent.width.unwrap();
+
+        let mut width = 0.0;
+        let mut row = Row::new();
+
+        // Shrinks each child to the smallest size
+        parent.width = SmallestLength::SmallestWidth(1.0);
+        parent.height = SmallestLength::SmallestHeight(1.0);
+
+        for child in self.children.iter() {
+            let mut lock = child.lock();
+
+            if lock.is_visible() {
+                let size = lock.smallest_size(&parent, info);
+
+                let real_size = size.real_size();
+
+                width += real_size.width;
+
+                if width > real_size.width && width > max_width {
+                    self.rows.push(row);
+
+                    width = real_size.width;
+                    row = Row::new();
+                }
+
+                row.height = row.height.max(real_size.height);
+
+                row.children.push(Child {
+                    width: real_size.width,
+                    size: size,
+                    handle: child.clone(),
+                });
+
+                min_size.width = min_size.width.max(width);
+            }
+        }
+
+        if !row.children.is_empty() {
+            self.rows.push(row);
+        }
+
+        for row in self.rows.iter() {
+            min_size.height += row.height;
+        }
+
+        min_size
     }
 }
 
@@ -65,61 +118,18 @@ impl NodeLayout for Wrap {
         self.visible
     }
 
-    #[inline]
-    fn is_stretch(&mut self) -> bool {
-        self.stretch
+    fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
+        let smallest_size = self.location.size.smallest_size(&info.screen_size);
+
+        let padding = self.location.padding.to_screen(parent, &smallest_size, &info.screen_size);
+
+        smallest_size.with_padding(parent, padding, |parent| {
+            self.children_size(parent, info)
+        })
     }
 
-    fn min_size<'a>(&mut self, parent: &RealSize, info: &mut SceneLayoutInfo<'a>) -> RealSize {
-        if let Some(min_size) = self.min_size {
-            min_size
-
-        } else {
-            let min_size = self.location.children_size(parent, info, |child_parent, info| {
-                let max_width = child_parent.width;
-
-                let mut width = 0.0;
-                let mut row = Row::new();
-
-                for child in self.children.iter() {
-                    let mut lock = child.lock();
-
-                    if lock.is_visible() {
-                        let size = lock.min_size(child_parent, info);
-
-                        width += size.width;
-
-                        if width > size.width && width > max_width {
-                            self.rows.push(row);
-
-                            width = size.width;
-                            row = Row::new();
-                        }
-
-                        row.height = row.height.max(size.height);
-
-                        row.children.push(Child {
-                            width: size.width,
-                            handle: child.clone(),
-                        });
-                    }
-                }
-
-                if !row.children.is_empty() {
-                    self.rows.push(row);
-                }
-            });
-
-            self.min_size = Some(min_size);
-            min_size
-        }
-    }
-
-    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
-        // This is needed in order to calculate the rows
-        let children_min_size = self.min_size(&parent.size, info);
-
-        let this_location = parent.modify(&self.location, &children_min_size, &info.screen_size);
+    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
+        let this_location = self.location.children_location(parent, &smallest_size.real_size(), &info.screen_size);
 
         {
             let mut child_location = this_location;
@@ -136,7 +146,7 @@ impl NodeLayout for Wrap {
 
                     child_location.z_index = max_z_index;
 
-                    child.handle.lock().update_layout(&child.handle, &child_location, info);
+                    child.handle.lock().update_layout(&child.handle, &child_location, &child.size, info);
 
                     child_location.move_right(child.width);
                 }
@@ -147,7 +157,6 @@ impl NodeLayout for Wrap {
         }
 
         self.rows.clear();
-        self.min_size = None;
     }
 
     fn render<'a>(&mut self, _info: &mut SceneRenderInfo<'a>) {}

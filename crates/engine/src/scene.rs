@@ -11,21 +11,21 @@ use bitmap_text::{BitmapTextRenderer};
 mod builder;
 mod sprite;
 mod row;
-//mod column;
-//mod stack;
-//mod wrap;
-//mod grid;
-//mod border_grid;
+mod column;
+mod stack;
+mod wrap;
+mod grid;
+mod border_grid;
 mod bitmap_text;
 
 pub use builder::{Node};
 pub use sprite::{Sprite, SpriteBuilder, Spritesheet, SpritesheetSettings, Tile, RepeatTile, Repeat};
 pub use row::{Row, RowBuilder};
-//pub use column::{Column, ColumnBuilder};
-//pub use stack::{Stack, StackBuilder};
-//pub use wrap::{Wrap, WrapBuilder};
-//pub use grid::{Grid, GridBuilder, GridSize};
-//pub use border_grid::{BorderGrid, BorderGridBuilder, BorderSize, Quadrants};
+pub use column::{Column, ColumnBuilder};
+pub use stack::{Stack, StackBuilder};
+pub use wrap::{Wrap, WrapBuilder};
+pub use grid::{Grid, GridBuilder, GridSize};
+pub use border_grid::{BorderGrid, BorderGridBuilder, BorderSize, Quadrants};
 pub use bitmap_text::{
     BitmapText, BitmapTextBuilder, BitmapFont, BitmapFontSettings,
     BitmapFontSupported, ColorRgb, CharSize,
@@ -125,14 +125,6 @@ pub(crate) struct RealPadding {
     pub(crate) down: Percentage,
     pub(crate) left: Percentage,
     pub(crate) right: Percentage,
-}
-
-impl RealPadding {
-    pub(crate) fn size(&self) -> RealSize {
-        let width = self.left + self.right;
-        let height = self.up + self.down;
-        RealSize { width, height }
-    }
 }
 
 
@@ -426,15 +418,6 @@ impl SmallestSize {
         Self { width, height }
     }
 
-    /// Used inside of [`NodeLayout::smallest_size`] to calculate the SmallestWidth / SmallestHeight.
-    ///
-    /// Panics if it isn't a [`SmallestLength::Screen`].
-    pub(crate) fn unwrap(&self) -> RealSize {
-        let width = self.width.unwrap();
-        let height = self.height.unwrap();
-        RealSize { width, height }
-    }
-
     /// Used inside of [`NodeLayout::smallest_size`] to calculate the [`RealSize`] for the children.
     ///
     /// 1. Converts from self space into child space (by subtracting the padding).
@@ -511,20 +494,6 @@ pub enum Length {
 }
 
 impl Length {
-    fn is_smallest(&self) -> bool {
-        match self {
-            Self::SmallestWidth(_) |
-            Self::SmallestHeight(_) => true,
-            _ => false,
-        }
-    }
-
-    fn assert_not_smallest(&self, message: &str) {
-        if self.is_smallest() {
-            panic!("{}", message);
-        }
-    }
-
     fn smallest_length(&self, screen: &ScreenLength) -> SmallestLength {
         match self {
             Self::Zero => SmallestLength::Screen(0.0),
@@ -767,7 +736,11 @@ pub(crate) trait NodeLayout {
     ///
     /// If the Node is invisible then this method MUST NOT be called.
     ///
+    /// This method must be called only once per layout.
+    ///
     /// If the `parent` is [`SmallestLength::Screen`] then it MUST be the same as the `parent` in `update_layout`.
+    ///
+    /// This method MUST NOT return [`SmallestLength::SmallestWidth`] or [`SmallestLength::SmallestHeight`].
     fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize;
 
     /// Does re-layout AND re-render on the Node.

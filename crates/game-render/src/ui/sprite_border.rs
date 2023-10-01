@@ -1,5 +1,5 @@
 use rusted_battalions_engine as engine;
-use rusted_battalions_engine::{Length, Tile, Origin, Padding, Size, Node, Spritesheet};
+use rusted_battalions_engine::{Tile, Node, Spritesheet};
 
 pub use rusted_battalions_engine::{BorderSize, RepeatTile, Repeat};
 
@@ -38,12 +38,12 @@ impl QuadrantGrid {
 
 impl From<QuadrantGrid> for Quadrants {
     fn from(value: QuadrantGrid) -> Self {
-        let x1 = start_x;
+        let x1 = value.start_x;
         let x2 = x1 + value.left_width;
         let x3 = x2 + value.center_width;
         let x4 = x3 + value.right_width;
 
-        let y1 = start_y;
+        let y1 = value.start_y;
         let y2 = y1 + value.up_height;
         let y3 = y2 + value.center_height;
         let y4 = y3 + value.down_height;

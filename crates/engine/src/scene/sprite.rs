@@ -165,7 +165,7 @@ pub struct Sprite {
     location_changed: bool,
 
     parent_location: Option<RealLocation>,
-    smallest_size: Option<SmallestSize>,
+    smallest_size: Option<RealSize>,
 
     gpu_index: usize,
     gpu_sprite: GPUSprite,
@@ -195,7 +195,6 @@ impl Sprite {
 
     fn location_changed(&mut self) {
         self.location_changed = true;
-        self.smallest_size = None;
         self.render_changed();
     }
 
@@ -203,8 +202,9 @@ impl Sprite {
         self.render_changed = true;
     }
 
-    fn update_gpu(&mut self, smallest: &RealSize, screen: &ScreenSize) {
+    fn update_gpu(&mut self, screen: &ScreenSize) {
         let parent = self.parent_location.as_ref().unwrap();
+        let smallest = self.smallest_size.as_ref().unwrap();
 
         let location = self.location.children_location(parent, smallest, screen);
 
@@ -217,7 +217,7 @@ impl Sprite {
 make_builder!(Sprite, SpriteBuilder);
 base_methods!(Sprite, SpriteBuilder);
 
-location_methods!(Sprite, SpriteBuilder, false, |state| {
+location_methods!(Sprite, SpriteBuilder, true, |state| {
     state.location_changed();
 });
 
@@ -282,18 +282,19 @@ impl NodeLayout for Sprite {
         self.visible
     }
 
-    fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
-        *self.smallest_size.get_or_insert_with(|| {
-            self.location.size.smallest_size(&info.screen_size)
-        })
+    fn smallest_size<'a>(&mut self, _parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
+        self.location.size.smallest_size(&info.screen_size)
     }
 
     fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
+        let smallest_size = smallest_size.real_size();
+
         self.render_changed = false;
         self.location_changed = false;
         self.parent_location = Some(*parent);
+        self.smallest_size = Some(smallest_size);
 
-        self.update_gpu(&smallest_size.real_size(), &info.screen_size);
+        self.update_gpu(&info.screen_size);
 
         info.renderer.set_max_z_index(self.gpu_sprite.z_index);
 
@@ -322,9 +323,7 @@ impl NodeLayout for Sprite {
             if self.location_changed {
                 self.location_changed = false;
 
-                let smallest = self.smallest_size.as_ref().unwrap().real_size();
-
-                self.update_gpu(&smallest, &info.screen_size);
+                self.update_gpu(&info.screen_size);
             }
 
             let spritesheet = self.spritesheet.as_ref().expect("Sprite is missing spritesheet");

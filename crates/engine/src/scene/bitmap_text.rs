@@ -34,6 +34,16 @@ pub struct ColorRgb {
 /// This is the size of a half-width Unicode character.
 ///
 /// A full-width Unicode character will be double the width of the [`CharSize`].
+///
+/// # Sizing
+///
+/// * [`Length::ParentWidth`]: the width is relative to the node's width minus padding.
+///
+/// * [`Length::ParentHeight`]: the height is relative to the node's height minus padding.
+///
+/// * [`Length::SmallestWidth`]: it is an error to use `SmallestWidth`.
+///
+/// * [`Length::SmallestHeight`]: it is an error to use `SmallestHeight`.
 #[derive(Debug, Default)]
 pub struct CharSize {
     pub width: Length,
@@ -41,9 +51,9 @@ pub struct CharSize {
 }
 
 impl CharSize {
-    fn to_screen(&self, parent: &SmallestSize, smallest: &SmallestSize, screen: &ScreenSize) -> RealSize {
-        let width = self.width.smallest_length(&screen.width).to_screen(parent, smallest).unwrap();
-        let height = self.height.smallest_length(&screen.height).to_screen(parent, smallest).unwrap();
+    fn to_screen(&self, parent: &SmallestSize, screen: &ScreenSize) -> RealSize {
+        let width = self.width.smallest_length(&screen.width).parent_to_screen(parent).unwrap();
+        let height = self.height.smallest_length(&screen.height).parent_to_screen(parent).unwrap();
         RealSize { width, height }
     }
 }
@@ -97,7 +107,6 @@ pub struct BitmapText {
 
     // Internal state
     z_index: f32,
-    smallest_size: Option<SmallestSize>,
     glyphs: Vec<Glyph>,
 }
 
@@ -116,16 +125,15 @@ impl BitmapText {
             line_spacing: Length::Zero,
 
             z_index: 0.0,
-            smallest_size: None,
             glyphs: vec![],
         }
     }
 
-    fn layout_glyphs<'a>(&mut self, parent: &SmallestSize, smallest_size: &SmallestSize, max_width: Option<Percentage>, info: &mut SceneLayoutInfo<'a>) -> RealSize {
+    fn layout_glyphs<'a>(&mut self, parent: &SmallestSize, max_width: Option<Percentage>, screen_size: &ScreenSize) -> RealSize {
         let char_size = self.char_size.as_ref().expect("BitmapText is missing char_size");
-        let char_size = char_size.to_screen(parent, smallest_size, &info.screen_size);
+        let char_size = char_size.to_screen(parent, screen_size);
 
-        let line_spacing = self.line_spacing.smallest_length(&info.screen_size.height).to_screen(parent, smallest_size).unwrap();
+        let line_spacing = self.line_spacing.smallest_length(&screen_size.height).parent_to_screen(parent).unwrap();
 
         let line_height = char_size.height + line_spacing;
 
@@ -209,16 +217,16 @@ impl BitmapText {
         size
     }
 
-    fn calculate_glyphs<'a>(&mut self, parent: &SmallestSize, smallest_size: &SmallestSize, width: Percentage, info: &mut SceneLayoutInfo<'a>) {
+    fn calculate_glyphs<'a>(&mut self, parent: &SmallestSize, width: Percentage, screen_size: &ScreenSize) {
         if self.glyphs.is_empty() {
-            let _ = self.layout_glyphs(parent, smallest_size, Some(width), info);
+            let _ = self.layout_glyphs(parent, Some(width), screen_size);
         }
     }
 
-    fn children_size<'a>(&mut self, parent: &SmallestSize, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> RealSize {
+    fn children_size<'a>(&mut self, parent: &SmallestSize, screen_size: &ScreenSize) -> RealSize {
         match parent.width {
-            SmallestLength::Screen(width) => self.layout_glyphs(parent, smallest_size, Some(width), info),
-            SmallestLength::SmallestWidth(_) => self.layout_glyphs(parent, smallest_size, None, info),
+            SmallestLength::Screen(width) => self.layout_glyphs(parent, Some(width), screen_size),
+            SmallestLength::SmallestWidth(_) => self.layout_glyphs(parent, None, screen_size),
             SmallestLength::SmallestHeight(_) => panic!("BitmapText smallest height is unknown"),
             SmallestLength::ParentWidth(_) => panic!("BitmapText width is unknown"),
             SmallestLength::ParentHeight(_) => panic!("BitmapText height is unknown"),
@@ -287,9 +295,13 @@ impl BitmapTextBuilder {
         ///
         /// # Sizing
         ///
-        /// * [`Length::ChildrenWidth`]: it is an error to use children width.
+        /// * [`Length::ParentWidth`]: the width is relative to the node's width minus padding.
         ///
-        /// * [`Length::ChildrenHeight`]: it is an error to use children height.
+        /// * [`Length::ParentHeight`]: the height is relative to the node's height minus padding.
+        ///
+        /// * [`Length::SmallestWidth`]: it is an error to use `SmallestWidth`.
+        ///
+        /// * [`Length::SmallestHeight`]: it is an error to use `SmallestHeight`.
         line_spacing,
         line_spacing_signal,
         true,
@@ -307,38 +319,30 @@ impl NodeLayout for BitmapText {
     }
 
     fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
-        if let Some(smallest_size) = self.smallest_size {
-            smallest_size
+        assert_eq!(self.glyphs.len(), 0);
+
+        let smallest_size = self.location.size.smallest_size(&info.screen_size);
+
+        if smallest_size.is_smallest() {
+            let padding = self.location.padding.to_screen(parent, &smallest_size, &info.screen_size);
+
+            smallest_size.with_padding(parent, padding, |parent| {
+                self.children_size(&parent, &info.screen_size)
+            })
 
         } else {
-            assert_eq!(self.glyphs.len(), 0);
-
-            let smallest_size = self.location.size.smallest_size(&info.screen_size);
-
-            let smallest_size = if smallest_size.is_smallest() {
-                let padding = self.location.padding.to_screen(parent, &smallest_size, &info.screen_size);
-
-                smallest_size.with_padding(parent, padding, |parent| {
-                    self.children_size(&parent, &smallest_size, info)
-                })
-
-            } else {
-                smallest_size
-            };
-
-            self.smallest_size = Some(smallest_size);
             smallest_size
         }
     }
 
     fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
-        // If it has a fixed size then we need to calculate the glyphs.
-        self.calculate_glyphs(&parent.size.smallest_size(), smallest_size, parent.size.width, info);
-
         let font = self.font.as_ref().expect("BitmapText is missing font");
 
         if let Some(font) = info.renderer.bitmap_text.fonts.get_mut(&font.handle) {
             let this_location = self.location.children_location(parent, &smallest_size.real_size(), &info.screen_size);
+
+            // If it has a fixed size then we need to calculate the glyphs.
+            self.calculate_glyphs(&this_location.size.smallest_size(), this_location.size.width, &info.screen_size);
 
             if !self.glyphs.is_empty() {
                 self.z_index = this_location.z_index;
@@ -370,7 +374,6 @@ impl NodeLayout for BitmapText {
         }
 
         self.glyphs.clear();
-        self.smallest_size = None;
     }
 
     #[inline]
