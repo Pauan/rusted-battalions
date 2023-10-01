@@ -11,10 +11,10 @@ use crate::util::builders;
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method};
 use crate::scene::sprite::{GPUSprite, Tile, SpritesheetPipeline, SCENE_SHADER, SPRITE_SHADER};
 use crate::scene::{
-    NodeHandle, Location, Origin, Size, Offset, Padding,
+    NodeHandle, Location, Origin, Size, Offset, Padding, SmallestLength,
     RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
     Length, Percentage, Handles, Prerender, Texture, SceneUniform,
-    ScenePrerender, RealSize, ScreenSize,
+    ScenePrerender, RealSize, ScreenSize, SmallestSize, RealPosition,
 };
 
 
@@ -34,12 +34,6 @@ pub struct ColorRgb {
 /// This is the size of a half-width Unicode character.
 ///
 /// A full-width Unicode character will be double the width of the [`CharSize`].
-///
-/// # Sizing
-///
-/// * [`Length::SmallestWidth`]: it is an error to use `SmallestWidth`.
-///
-/// * [`Length::SmallestHeight`]: it is an error to use `SmallestHeight`.
 #[derive(Debug, Default)]
 pub struct CharSize {
     pub width: Length,
@@ -47,16 +41,9 @@ pub struct CharSize {
 }
 
 impl CharSize {
-    fn assert_not_smallest(&self) {
-        let message = "CharSize cannot use SmallestWidth or SmallestHeight";
-        self.width.assert_not_smallest(message);
-        self.height.assert_not_smallest(message);
-    }
-
-    fn to_screen_space(&self, parent: &RealSize, smallest: &RealSize, screen: &ScreenSize) -> RealSize {
-        let width = self.width.to_screen_space(parent, smallest, &screen.width);
-        let height = self.height.to_screen_space(parent, smallest, &screen.height);
-
+    fn to_screen(&self, parent: &SmallestSize, smallest: &SmallestSize, screen: &ScreenSize) -> RealSize {
+        let width = self.width.smallest_length(&screen.width).to_screen(parent, smallest).unwrap();
+        let height = self.height.smallest_length(&screen.height).to_screen(parent, smallest).unwrap();
         RealSize { width, height }
     }
 }
@@ -110,7 +97,6 @@ pub struct BitmapText {
 
     // Internal state
     z_index: f32,
-    text_size: Option<RealSize>,
     smallest_size: Option<SmallestSize>,
     glyphs: Vec<Glyph>,
 }
@@ -130,175 +116,119 @@ impl BitmapText {
             line_spacing: Length::Zero,
 
             z_index: 0.0,
-            text_size: None,
             smallest_size: None,
             glyphs: vec![],
         }
     }
 
-    fn text_changed(&mut self) {
-        self.glyphs.clear();
-        self.text_size = None;
-        self.smallest_size = None;
-    }
+    fn layout_glyphs<'a>(&mut self, parent: &SmallestSize, smallest_size: &SmallestSize, max_width: Option<Percentage>, info: &mut SceneLayoutInfo<'a>) -> RealSize {
+        let char_size = self.char_size.as_ref().expect("BitmapText is missing char_size");
+        let char_size = char_size.to_screen(parent, smallest_size, &info.screen_size);
 
-    fn layout_characters<'a>(&mut self, parent: &RealSize, info: &mut SceneLayoutInfo<'a>) -> RealSize {
-        *self.text_size.get_or_insert_with(|| {
-            debug_assert_eq!(self.glyphs.len(), 0);
-
-            let char_size = self.char_size.as_ref().expect("BitmapText is missing char_size");
-
-            self.line_spacing.assert_not_smallest("BitmapText line_spacing cannot use SmallestWidth or SmallestHeight");
-            char_size.assert_not_smallest();
-
-            self.location.size
-                .smallest_size(&info.screen_size)
-                .to_screen(|smallest_size| {
-                    let zero = RealSize::zero();
-
-                    let children_size = if self.text == "" {
-                        zero
-
-                    } else {
-                        let line_spacing = self.line_spacing.to_screen_space(parent, &zero, &info.screen_size);
-                        let char_size = char_size.to_screen_space(parent, &zero, &info.screen_size);
-
-                    };
-
-                    self.location.padding.smallest_size(smallest_size, &children_size, &info.screen_size)
-                })
-                .to_real_size(parent)
-
-
-
-
-
-
-
-
-
-
-
-
-
-        })
-
-        if self.text_changed {
-            self.text_changed = false;
-
-
-
-        } else {
-        }
-
-
-        let smallest_size = self.smallest_size(info);
-
-
-
-        let mut children_size = {
-            let size = self.location.size.to_screen_space(parent, &smallest_size, &info.screen_size);
-            let padding = self.location.padding.to_screen_space(parent, &smallest_size, &info.screen_size).size();
-
-            size - padding
-        };
-
+        let line_spacing = self.line_spacing.smallest_length(&info.screen_size.height).to_screen(parent, smallest_size).unwrap();
 
         let line_height = char_size.height + line_spacing;
-        let max_width = children_size.width;
-
-        let mut position = RealPosition::zero();
-
-        if smallest_size.width.is_smallest() {
-
-
-        } else if smallest_size.height.is_smallest() {
-
-        }
-
-        children_size
-
-
-
 
         let glyph_size = RealSize {
             width: 2.0 * char_size.width,
             height: char_size.height,
         };
 
-        for text_line in self.text.lines() {
-            let mut width = 0.0;
 
-            for grapheme in unicode::graphemes(text_line) {
-                // TODO figure out a way to avoid iterating over the characters twice
-                let unicode_width = grapheme.chars()
-                    .map(unicode::char_width)
-                    .max();
+        let mut position = RealPosition::zero();
+        let mut size = RealSize::zero();
 
-                if let Some(unicode_width) = unicode_width {
-                    let unicode_display_width = if unicode_width == 0 {
-                        2
+        if self.text == "" {
+            debug_assert_eq!(self.glyphs.len(), 0);
 
-                    } else {
-                        unicode_width
-                    };
+        } else {
+            for text_line in self.text.lines() {
+                let mut width = 0.0;
 
-                    let max_char_width = (unicode_display_width as f32) * char_size.width;
+                for grapheme in unicode::graphemes(text_line) {
+                    // TODO figure out a way to avoid iterating over the characters twice
+                    let unicode_width = grapheme.chars()
+                        .map(unicode::char_width)
+                        .max();
 
-                    width += max_char_width;
+                    if let Some(unicode_width) = unicode_width {
+                        let unicode_display_width = if unicode_width == 0 {
+                            2
 
-                    if width > max_char_width && width > max_width {
-                        width = max_char_width;
-                        position.x = 0.0;
-                        position.y += line_height;
-                    }
+                        } else {
+                            unicode_width
+                        };
 
-                    let mut has_char = false;
+                        let max_char_width = (unicode_display_width as f32) * char_size.width;
 
-                    for c in grapheme.chars() {
-                        has_char = true;
+                        width += max_char_width;
 
-                        let mut position = position;
+                        if width > max_char_width && max_width.map(|max_width| width > max_width).unwrap_or(false) {
+                            width = max_char_width;
+                            position.x = 0.0;
+                            position.y += line_height;
+                        }
 
-                        position.x += unicode::char_offset(c, unicode_width) * char_size.width;
+                        let mut has_char = false;
 
-                        let mut gpu_sprite = GPUSprite::default();
-                        let gpu_char = GPUChar::default();
+                        for c in grapheme.chars() {
+                            has_char = true;
 
-                        gpu_sprite.uv = [1.0, 1.0];
+                            let mut position = position;
 
-                        self.glyphs.push(Glyph {
-                            character: c,
-                            position,
-                            size: glyph_size,
-                            gpu_sprite,
-                            gpu_char,
-                        });
-                    }
+                            position.x += unicode::char_offset(c, unicode_width) * char_size.width;
 
-                    position.x = width;
+                            let mut gpu_sprite = GPUSprite::default();
+                            let gpu_char = GPUChar::default();
 
-                    if has_char {
-                        min_size.width = min_size.width.max(width);
-                        min_size.height = min_size.height.max(position.y + char_size.height);
+                            gpu_sprite.uv = [1.0, 1.0];
+
+                            self.glyphs.push(Glyph {
+                                character: c,
+                                position,
+                                size: glyph_size,
+                                gpu_sprite,
+                                gpu_char,
+                            });
+                        }
+
+                        position.x = width;
+
+                        if has_char {
+                            size.width = size.width.max(width);
+                            size.height = size.height.max(position.y + char_size.height);
+                        }
                     }
                 }
-            }
 
-            position.x = 0.0;
-            position.y += line_height;
+                position.x = 0.0;
+                position.y += line_height;
+            }
         }
 
-        smallest_size
+        size
+    }
+
+    fn calculate_glyphs<'a>(&mut self, parent: &SmallestSize, smallest_size: &SmallestSize, width: Percentage, info: &mut SceneLayoutInfo<'a>) {
+        if self.glyphs.is_empty() {
+            let _ = self.layout_glyphs(parent, smallest_size, Some(width), info);
+        }
+    }
+
+    fn children_size<'a>(&mut self, parent: &SmallestSize, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> RealSize {
+        match parent.width {
+            SmallestLength::Screen(width) => self.layout_glyphs(parent, smallest_size, Some(width), info),
+            SmallestLength::SmallestWidth(_) => self.layout_glyphs(parent, smallest_size, None, info),
+            SmallestLength::SmallestHeight(_) => panic!("BitmapText smallest height is unknown"),
+            SmallestLength::ParentWidth(_) => panic!("BitmapText width is unknown"),
+            SmallestLength::ParentHeight(_) => panic!("BitmapText height is unknown"),
+        }
     }
 }
 
 make_builder!(BitmapText, BitmapTextBuilder);
 base_methods!(BitmapText, BitmapTextBuilder);
-location_methods!(BitmapText, BitmapTextBuilder, true, |state| {
-    // TODO only update the text if the size changes ?
-    state.text_changed();
-});
+location_methods!(BitmapText, BitmapTextBuilder, true);
 
 impl BitmapTextBuilder {
     simple_method!(
@@ -309,7 +239,6 @@ impl BitmapTextBuilder {
         true,
         |state, value: BitmapFont| {
             state.font = Some(value);
-            state.text_changed();
         },
     );
 
@@ -321,7 +250,6 @@ impl BitmapTextBuilder {
         true,
         |state, value: CharSize| {
             state.char_size = Some(value);
-            state.text_changed();
         },
     );
 
@@ -335,7 +263,6 @@ impl BitmapTextBuilder {
         true,
         |state, value: Cow<'static, str>| {
             state.text = value;
-            state.text_changed();
         },
     );
 
@@ -346,12 +273,10 @@ impl BitmapTextBuilder {
         text_color,
         text_color_signal,
         true,
+        // TODO it should update the text color without needing to relayout
         true,
         |state, value: ColorRgb| {
             state.text_color = value;
-
-            // TODO it should update the text color without needing to relayout
-            state.text_changed();
         },
     );
 
@@ -371,7 +296,6 @@ impl BitmapTextBuilder {
         true,
         |state, value: Length| {
             state.line_spacing = value;
-            state.text_changed();
         },
     );
 }
@@ -382,33 +306,39 @@ impl NodeLayout for BitmapText {
         self.visible
     }
 
-    fn smallest_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
+    fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
         if let Some(smallest_size) = self.smallest_size {
             smallest_size
 
         } else {
             assert_eq!(self.glyphs.len(), 0);
 
-            let smallest_size = self.location.size
-                .smallest_size(&info.screen_size)
-                .to_screen(|smallest_size| {
-                    // TODO verify that this is correct
-                    smallest_size.unwrap_or(0.0)
-                });
+            let smallest_size = self.location.size.smallest_size(&info.screen_size);
+
+            let smallest_size = if smallest_size.is_smallest() {
+                let padding = self.location.padding.to_screen(parent, &smallest_size, &info.screen_size);
+
+                smallest_size.with_padding(parent, padding, |parent| {
+                    self.children_size(&parent, &smallest_size, info)
+                })
+
+            } else {
+                smallest_size
+            };
 
             self.smallest_size = Some(smallest_size);
             smallest_size
         }
     }
 
-    fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
-        // This calculates the glyphs and the smallest size
-        let smallest = self.layout_characters(&parent.size, &info.screen_size);
+    fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
+        // If it has a fixed size then we need to calculate the glyphs.
+        self.calculate_glyphs(&parent.size.smallest_size(), smallest_size, parent.size.width, info);
 
         let font = self.font.as_ref().expect("BitmapText is missing font");
 
         if let Some(font) = info.renderer.bitmap_text.fonts.get_mut(&font.handle) {
-            let this_location = self.location.children_location(parent, &smallest, &info.screen_size);
+            let this_location = self.location.children_location(parent, &smallest_size.real_size(), &info.screen_size);
 
             if !self.glyphs.is_empty() {
                 self.z_index = this_location.z_index;
@@ -434,13 +364,19 @@ impl NodeLayout for BitmapText {
                     font.chars.push(glyph.gpu_char);
                 }
 
+                info.rendered_nodes.push(handle.clone());
                 info.renderer.set_max_z_index(self.z_index);
             }
         }
+
+        self.glyphs.clear();
+        self.smallest_size = None;
     }
 
     #[inline]
-    fn render<'a>(&mut self, _info: &mut SceneRenderInfo<'a>) {}
+    fn render<'a>(&mut self, info: &mut SceneRenderInfo<'a>) {
+        info.renderer.set_max_z_index(self.z_index);
+    }
 }
 
 

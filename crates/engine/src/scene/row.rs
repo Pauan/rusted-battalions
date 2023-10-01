@@ -4,11 +4,12 @@ use crate::scene::builder::{Node, make_builder, base_methods, location_methods, 
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Percentage, Padding, SmallestSize,
     SmallestLength, RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
+    internal_panic,
 };
 
 
 struct Child {
-    width: SmallestLength,
+    size: SmallestSize,
     handle: NodeHandle,
 }
 
@@ -99,7 +100,7 @@ impl Row {
                 }
 
                 self.computed_children.push(Child {
-                    width: child_size.width,
+                    size: child_size,
                     handle: child.clone(),
                 });
             }
@@ -127,16 +128,17 @@ impl NodeLayout for Row {
             smallest_size
 
         } else {
-            let size = self.location.size.smallest_size(parent, &info.screen_size);
-            let padding = self.location.padding.smallest_size(parent, &info.screen_size);
+            let smallest_size = self.location.size.smallest_size(&info.screen_size);
 
-            // Shrinks the children horizontally as much as possible.
-            size.width = SmallestLength::SmallestWidth(1.0);
+            let padding = self.location.padding.to_screen(parent, &smallest_size, &info.screen_size);
 
-            let smallest_size = size.with_padding(&padding, |parent| {
+            let smallest_size = smallest_size.with_padding(parent, padding, |parent| {
+                // Shrinks the children horizontally as much as possible.
+                parent.width = SmallestLength::SmallestWidth(1.0);
+
                 // This needs to always run even if the Row has a fixed size, because we need
                 // to calculate the min_width and ratio_sum.
-                self.children_size(parent, info)
+                self.children_size(&parent, info)
             });
 
             self.smallest_size = Some(smallest_size);
@@ -144,10 +146,8 @@ impl NodeLayout for Row {
         }
     }
 
-    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
-        let smallest_size = self.smallest_size(&parent.size.smallest_size(), info).unwrap();
-
-        let mut this_location = self.location.children_location(parent, &smallest_size, &info.screen_size);
+    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
+        let mut this_location = self.location.children_location(parent, &smallest_size.real_size(), &info.screen_size);
 
         let empty_space = (this_location.size.width - self.min_width).max(0.0);
 
@@ -158,7 +158,7 @@ impl NodeLayout for Row {
 
             assert!(max_z_index >= this_location.z_index);
 
-            let child_size = match child.width {
+            let child_size = match child.size.width {
                 SmallestLength::Screen(width) => {
                     RealSize {
                         width: width,
@@ -182,7 +182,7 @@ impl NodeLayout for Row {
                 z_index: max_z_index,
             };
 
-            child.handle.lock().update_layout(&child.handle, &child_location, info);
+            child.handle.lock().update_layout(&child.handle, &child_location, &child.size, info);
 
             this_location.move_right(child_location.size.width);
         }

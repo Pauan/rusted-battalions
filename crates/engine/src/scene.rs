@@ -35,8 +35,8 @@ pub use bitmap_text::{
 static INTERNAL_BUG_MESSAGE: &'static str = "UNEXPECTED INTERNAL BUG, PLEASE REPORT THIS";
 
 #[track_caller]
-pub(crate) fn internal_panic() {
-    panic!(INTERNAL_BUG_MESSAGE);
+pub(crate) fn internal_panic() -> ! {
+    panic!("{}", INTERNAL_BUG_MESSAGE);
 }
 
 
@@ -49,6 +49,26 @@ pub type Percentage = f32;
 pub(crate) struct RealPosition {
     pub(crate) x: Percentage,
     pub(crate) y: Percentage,
+}
+
+impl RealPosition {
+    pub(crate) fn zero() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+        }
+    }
+}
+
+impl std::ops::Add for RealPosition {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
 }
 
 
@@ -207,380 +227,18 @@ impl Padding {
             up: length,
             down: length,
             left: length,
-            rigth: length,
+            right: length,
         }
     }
 
-    /*pub(crate) fn assert_not_children(&self, message: &str) {
-        self.up.assert_not_children(message);
-        self.down.assert_not_children(message);
-        self.left.assert_not_children(message);
-        self.right.assert_not_children(message);
-    }
-
-    // TODO unit tests for this
-    pub(crate) fn parent_size(&self, min_size: &MinSize, children: &RealSize, screen: &ScreenSize) -> RealSize {
-        let mut width = children.width;
-        let mut height = children.height;
-
-        let mut width_ratio = 0.0;
-        let mut height_ratio = 0.0;
-
-        let mut cross_width_ratio = 0.0;
-        let mut cross_height_ratio = 0.0;
-
-
-        match min_size.width {
-            MinLength::Screen(_) => {},
-
-            MinLength::ChildrenWidth(parent) => {
-                match self.left.parent_size(children, &screen.width) {
-                    MinLength::Screen(x) => {
-                        width += x;
-                    },
-                    MinLength::ChildrenWidth(x) => {
-                        width_ratio += x;
-                    },
-                    MinLength::ChildrenHeight(x) => {
-                        cross_width_ratio += x;
-                    },
-                }
-
-                match self.right.parent_size(children, &screen.width) {
-                    MinLength::Screen(x) => {
-                        width += x;
-                    },
-                    MinLength::ChildrenWidth(x) => {
-                        width_ratio += x;
-                    },
-                    MinLength::ChildrenHeight(x) => {
-                        cross_width_ratio += x;
-                    },
-                }
-
-                if width_ratio < parent {
-                    if width_ratio != 0.0 {
-                        let ratio = (parent / width_ratio) - 1.0;
-                        width_ratio = 1.0 / ratio;
-                    }
-
-                } else {
-                    width = 0.0;
-                    width_ratio = 0.0;
-                    cross_width_ratio = 0.0;
-                }
-            },
-
-            MinLength::ChildrenHeight(parent) => {
-                match self.left.parent_size(children, &screen.width) {
-                    MinLength::Screen(x) => {
-                        width += x;
-                    },
-                    MinLength::ChildrenWidth(x) => {
-                        cross_width_ratio += x * parent;
-                    },
-                    MinLength::ChildrenHeight(x) => {
-                        cross_width_ratio += x;
-                    },
-                }
-
-                match self.right.parent_size(children, &screen.width) {
-                    MinLength::Screen(x) => {
-                        width += x;
-                    },
-                    MinLength::ChildrenWidth(x) => {
-                        cross_width_ratio += x * parent;
-                    },
-                    MinLength::ChildrenHeight(x) => {
-                        cross_width_ratio += x;
-                    },
-                }
-            },
-        }
-
-
-        match min_size.height {
-            MinLength::Screen(_) => {},
-
-            MinLength::ChildrenWidth(parent) => {
-                match self.up.parent_size(children, &screen.height) {
-                    MinLength::Screen(x) => {
-                        height += x;
-                    },
-                    MinLength::ChildrenWidth(x) => {
-                        cross_height_ratio += x * parent;
-                    },
-                    MinLength::ChildrenHeight(x) => {
-                        cross_height_ratio += x;
-                    },
-                }
-
-                match self.down.parent_size(children, &screen.height) {
-                    MinLength::Screen(x) => {
-                        height += x;
-                    },
-                    MinLength::ChildrenWidth(x) => {
-                        cross_height_ratio += x * parent;
-                    },
-                    MinLength::ChildrenHeight(x) => {
-                        cross_height_ratio += x;
-                    },
-                }
-            },
-
-            MinLength::ChildrenHeight(parent) => {
-                match self.up.parent_size(children, &screen.height) {
-                    MinLength::Screen(x) => {
-                        height += x;
-                    },
-                    MinLength::ChildrenWidth(x) => {
-                        height_ratio += x;
-                    },
-                    MinLength::ChildrenHeight(x) => {
-                        cross_height_ratio += x;
-                    },
-                }
-
-                match self.down.parent_size(children, &screen.height) {
-                    MinLength::Screen(x) => {
-                        height += x;
-                    },
-                    MinLength::ChildrenWidth(x) => {
-                        height_ratio += x;
-                    },
-                    MinLength::ChildrenHeight(x) => {
-                        cross_height_ratio += x;
-                    },
-                }
-
-                if height_ratio < parent {
-                    if height_ratio != 0.0 {
-                        let ratio = (parent / height_ratio) - 1.0;
-                        height_ratio = 1.0 / ratio;
-                    }
-
-                } else {
-                    height = 0.0;
-                    height_ratio = 0.0;
-                    cross_height_ratio = 0.0;
-                }
-            },
-        }
-
-
-        let new_width = width + (cross_width_ratio * height);
-        let new_height = height + (cross_height_ratio * width);
-
-        width = new_width + (new_width * width_ratio);
-        height = new_height + (new_height * height_ratio);
-
-        debug_assert!(width >= 0.0);
-        debug_assert!(height >= 0.0);
-
-        RealSize { width, height }
-    }
-
-    /// Subtracts the padding from the child.
-    //
-    // First this subtracts the fixed padding from the child.
-    //
-    // Then it calculates the cross-ratio for the width / height.
-    // e.g. `left: ChildrenHeight(1.0)` is a "cross ratio" because it
-    // is referring to the opposite cross axis.
-    //
-    // The cross-ratio can create an infinite loop, e.g.
-    // `{ left: ChildrenHeight(1.0), up: ChildrenWidth(1.0) }` so we have to
-    // panic in that situation.
-    //
-    // The cross-ratio also creates an ordering dependency: if using `ChildrenWidth`
-    // then the width must be calculated first, and if using `ChildrenHeight` then
-    // the height must be calculated first.
-    //
-    // Then it calculates the ratio for the width / height.
-    // Because the `ChildrenWidth` and `ChildrenHeight` are percentages,
-    // we can calculate how small the center should be by calculating
-    // the ratios.
-    //
-    // For example, `{ left: ChildrenWidth(1.0), right: ChildrenWidth(1.0) }`
-    // means that the center will be 1/3 of the width, because we know
-    // that the left padding, right padding, and center must all be the same
-    // size, and so the left padding must be 1/3 of the width, the right
-    // padding must be 1/3 of the width, and the center must be 1/3 of the width.
-    //
-    // Similarly, `{ left: ChildrenWidth(2.0), right: ChildrenWidth(2.0) }`
-    // means that the center must be 1/5 of the width, because the left
-    // padding is twice the size of the center, and the right padding is also
-    // twice the size of the center. So the left padding is 2/5 the width,
-    // the right padding is 2/5 the width, and the center is 1/5 the width.
-    pub(crate) fn children_size(&self, parent: &MinSize, child: &MinSize, screen: &ScreenSize) -> MinSize {
-        let mut width_ratio = 1.0;
-        let mut height_ratio = 1.0;
-
-        let mut cross_width_ratio = 0.0;
-        let mut cross_height_ratio = 0.0;
-
-        let mut output = *child;
-
-        if let MinLength::Screen(width) = &mut output.width {
-            match self.left.min_length(parent, &screen.width) {
-                MinLength::Screen(x) => {
-                    width -= x;
-                },
-                MinLength::ChildrenWidth(x) => {
-                    width_ratio += x;
-                },
-                MinLength::ChildrenHeight(x) => {
-                    cross_width_ratio += x;
-                },
-            }
-
-            match self.right.min_length(parent, &screen.width) {
-                MinLength::Screen(x) => {
-                    width -= x;
-                },
-                MinLength::ChildrenWidth(x) => {
-                    width_ratio += x;
-                },
-                MinLength::ChildrenHeight(x) => {
-                    cross_width_ratio += x;
-                },
-            }
-
-            width = width.max(0.0);
-
-            // If cross_width_ratio exists then it's handled below
-            if cross_width_ratio == 0.0 {
-                width *= 1.0 / width_ratio;
-            }
-
-            debug_assert!(width >= 0.0);
-        }
-
-        if let MinLength::Screen(height) = &mut output.height {
-            match self.up.min_length(parent, &screen.height) {
-                MinLength::Screen(x) => {
-                    height -= x;
-                },
-                MinLength::ChildrenWidth(x) => {
-                    cross_height_ratio += x;
-                },
-                MinLength::ChildrenHeight(x) => {
-                    height_ratio += x;
-                },
-            }
-
-            match self.down.min_length(parent, &screen.height) {
-                MinLength::Screen(x) => {
-                    height -= x;
-                },
-                MinLength::ChildrenWidth(x) => {
-                    cross_height_ratio += x;
-                },
-                MinLength::ChildrenHeight(x) => {
-                    height_ratio += x;
-                },
-            }
-
-            height = height.max(0.0);
-
-            if let MinLength::Screen(width) = &mut output.width {
-                if cross_width_ratio != 0.0 {
-                    if cross_height_ratio != 0.0 {
-                        panic!("Padding has conflicting recursive ChildrenWidth and ChildrenHeight");
-
-                    } else {
-                        width = (width - (height * cross_width_ratio)).max(0.0);
-                        width *= 1.0 / width_ratio;
-                    }
-
-                } else if cross_height_ratio != 0.0 {
-                    height = (height - (width * cross_height_ratio)).max(0.0);
-                }
-            }
-
-            height *= 1.0 / height_ratio;
-
-            debug_assert!(width >= 0.0);
-            debug_assert!(height >= 0.0);
-        }
-
-        output
-    }*/
-
-    /// Adds padding to the `children` so that way the `children` will remain the same size.
-    /*pub(crate) fn smallest_size(&self, parent: &SmallestSize, children: &RealSize, screen: &ScreenSize) -> RealSize {
-        let mut width = children.width;
-        let mut height = children.height;
-
-        let mut cross_width_ratio = 0.0;
-        let mut cross_height_ratio = 0.0;
-
-        for side in [&self.left, &self.right] {
-            match side.smallest_length(&screen.width) {
-                SmallestLength::Screen(x) => {
-                    width += x;
-                },
-
-                SmallestLength::ParentWidth(_) | SmallestLength::ParentHeight(_) => {},
-
-                SmallestLength::Smallest(Smallest::Width(_)) => {
-                    if parent.width.is_smallest() {
-                        unimplemented!();
-
-                    } else {
-                        unimplemented!();
-                    }
-                },
-
-                SmallestLength::Smallest(Smallest::Height(x)) => {
-                    cross_width_ratio += x;
-                },
-            }
-        }
-
-        for side in [&self.up, &self.down] {
-            match side.smallest_length(&screen.height) {
-                SmallestLength::Screen(x) => {
-                    height += x;
-                },
-
-                SmallestLength::ParentWidth(_) | SmallestLength::ParentHeight(_) => {},
-
-                SmallestLength::Smallest(Smallest::Width(x)) => {
-                    cross_height_ratio += x;
-                },
-
-                SmallestLength::Smallest(Smallest::Height(_)) => {
-                    if parent.height.is_smallest() {
-                        unimplemented!();
-
-                    } else {
-                        unimplemented!();
-                    }
-                },
-            }
-        }
-
-        if cross_width_ratio != 0.0 {
-            if cross_height_ratio != 0.0 {
-                panic!("Padding has conflicting recursive SmallestWidth and SmallestHeight");
-
-            } else {
-                width += cross_width_ratio * height;
-            }
-
-        } else if cross_height_ratio != 0.0 {
-            height += cross_height_ratio * width;
-        }
-
-        RealSize { width, height }
-    }*/
-
-    pub(crate) fn smallest_size(&self, parent: &SmallestSize, screen: &ScreenSize) -> RealSize {
-        let up = self.up.smallest_length(parent, screen).unwrap();
-        let down = self.down.smallest_length(parent, screen).unwrap();
-        let left = self.left.smallest_length(parent, screen).unwrap();
-        let right = self.right.smallest_length(parent, screen).unwrap();
+    /// Calculates the RealSize for the padding, if possible.
+    ///
+    /// Panics if it can't convert into a RealSize.
+    pub(crate) fn to_screen(&self, parent: &SmallestSize, smallest: &SmallestSize, screen: &ScreenSize) -> RealSize {
+        let up = self.up.smallest_length(&screen.height).to_screen(parent, smallest).unwrap();
+        let down = self.down.smallest_length(&screen.height).to_screen(parent, smallest).unwrap();
+        let left = self.left.smallest_length(&screen.width).to_screen(parent, smallest).unwrap();
+        let right = self.right.smallest_length(&screen.width).to_screen(parent, smallest).unwrap();
 
         RealSize {
             width: left + right,
@@ -589,12 +247,12 @@ impl Padding {
     }
 
     /// Converts the padding into screen space.
-    pub(crate) fn to_screen_space(&self, parent: &RealSize, smallest: &RealSize, screen: &ScreenSize) -> RealPadding {
-        let up = self.up.to_screen_space(parent, smallest, &screen.height);
-        let down = self.down.to_screen_space(parent, smallest, &screen.height);
+    pub(crate) fn real_padding(&self, parent: &RealSize, smallest: &RealSize, screen: &ScreenSize) -> RealPadding {
+        let up = self.up.real_length(parent, smallest, &screen.height);
+        let down = self.down.real_length(parent, smallest, &screen.height);
 
-        let left = self.left.to_screen_space(parent, smallest, &screen.width);
-        let right = self.right.to_screen_space(parent, smallest, &screen.width);
+        let left = self.left.real_length(parent, smallest, &screen.width);
+        let right = self.right.real_length(parent, smallest, &screen.width);
 
         RealPadding { up, down, left, right }
     }
@@ -623,34 +281,89 @@ pub(crate) enum SmallestLength {
 }
 
 impl SmallestLength {
-    pub(crate) fn is_smallest(&self) -> bool {
+    fn is_smallest(&self) -> bool {
         match self {
             Self::SmallestWidth(_) | Self::SmallestHeight(_) => true,
             _ => false,
         }
     }
 
-    pub(crate) fn smallest_to_screen(&self, smallest: &RealSize) -> Self {
+    /// Converts ParentWidth / ParentHeight / SmallestWidth / SmallestHeight into Screen, if possible.
+    fn to_screen(&self, parent: &SmallestSize, smallest: &SmallestSize) -> Self {
         match self {
-            Self::SmallestWidth(x) => Self::Screen(x * smallest.width),
-            Self::SmallestHeight(x) => Self::Screen(x * smallest.height),
-            x => x,
+            Self::ParentWidth(x) => match parent.width {
+                Self::Screen(width) => Self::Screen(x * width),
+                _ => Self::ParentWidth(*x),
+            },
+
+            Self::ParentHeight(x) => match parent.height {
+                Self::Screen(height) => Self::Screen(x * height),
+                _ => Self::ParentHeight(*x),
+            },
+
+            Self::SmallestWidth(x) => match smallest.width {
+                Self::Screen(width) => Self::Screen(x * width),
+
+                Self::ParentWidth(_) |
+                Self::ParentHeight(_) => Self::Screen(0.0),
+
+                _ => Self::SmallestWidth(*x),
+            },
+
+            Self::SmallestHeight(x) => match smallest.height {
+                Self::Screen(height) => Self::Screen(x * height),
+
+                Self::ParentWidth(_) |
+                Self::ParentHeight(_) => Self::Screen(0.0),
+
+                _ => Self::SmallestHeight(*x),
+            },
+
+            x => *x,
         }
     }
 
-    pub(crate) fn to_real_length(&self, parent: &RealSize) -> Percentage {
+    /// Converts ParentWidth / ParentHeight into Screen, if possible.
+    fn parent_to_screen(&self, parent: &SmallestSize) -> Self {
+        match self {
+            Self::ParentWidth(x) => match parent.width {
+                Self::Screen(width) => Self::Screen(x * width),
+                _ => Self::ParentWidth(*x),
+            },
+
+            Self::ParentHeight(x) => match parent.height {
+                Self::Screen(height) => Self::Screen(x * height),
+                _ => Self::ParentHeight(*x),
+            },
+
+            x => *x,
+        }
+    }
+
+    /// Converts the SmallestWidth / SmallestHeight into Screen.
+    fn set_smallest(&self, smallest: &RealSize) -> Self {
+        match self {
+            Self::SmallestWidth(x) => Self::Screen(x * smallest.width),
+            Self::SmallestHeight(x) => Self::Screen(x * smallest.height),
+            x => *x,
+        }
+    }
+
+    /// ParentWidth / ParentHeight are converted to 0.0
+    fn real_length(&self) -> Percentage {
         match self {
             Self::Screen(x) => *x,
 
-            Self::ParentWidth(x) => x * parent.width,
-            Self::ParentHeight(x) => x * parent.height,
+            Self::ParentWidth(_) |
+            Self::ParentHeight(_) => 0.0,
 
-            Self::SmallestWidth(_) => internal_panic(),
+            Self::SmallestWidth(_) |
             Self::SmallestHeight(_) => internal_panic(),
         }
     }
 
-    pub(crate) fn unwrap(&self) -> Percentage {
+    /// Panics if it's not a [`SmallestLength::Screen`].
+    fn unwrap(&self) -> Percentage {
         match self {
             Self::Screen(x) => *x,
 
@@ -690,12 +403,27 @@ impl SmallestSize {
         self.width.is_smallest() || self.height.is_smallest()
     }
 
+    /// Returns `0.0` for [`SmallestLength::ParentWidth`] / [`SmallestLength::ParentHeight`].
+    ///
+    /// Panics if it's a [`SmallestLength::ScreenWidth`] or [`SmallestLength::ScreenHeight`].
+    pub(crate) fn real_size(&self) -> RealSize {
+        let width = self.width.real_length();
+        let height = self.height.real_length();
+        RealSize { width, height }
+    }
+
+    /// Converts ParentWidth / ParentHeight into Screen, if possible.
+    pub(crate) fn parent_to_screen(&self, parent: &SmallestSize) -> Self {
+        let width = self.width.parent_to_screen(parent);
+        let height = self.height.parent_to_screen(parent);
+        Self { width, height }
+    }
+
     /// Used inside of [`NodeLayout::smallest_size`] to set the SmallestWidth / SmallestHeight.
-    pub(crate) fn smallest_to_screen(&self, smallest: &RealSize) -> Self {
-        Self {
-            width: self.width.smallest_to_screen(smallest),
-            height: self.height.smallest_to_screen(smallest),
-        }
+    pub(crate) fn set_smallest(&self, smallest: &RealSize) -> Self {
+        let width = self.width.set_smallest(smallest);
+        let height = self.height.set_smallest(smallest);
+        Self { width, height }
     }
 
     /// Used inside of [`NodeLayout::smallest_size`] to calculate the SmallestWidth / SmallestHeight.
@@ -703,33 +431,23 @@ impl SmallestSize {
     /// Panics if it isn't a [`SmallestLength::Screen`].
     pub(crate) fn unwrap(&self) -> RealSize {
         let width = self.width.unwrap();
-        let height = self.height.unwrap(;
+        let height = self.height.unwrap();
         RealSize { width, height }
     }
 
-    /// Used inside of [`NodeLayout::update_layout`] to calculate the ParentWidth / ParentHeight.
-    ///
-    /// Panics if it's a [`SmallestLength::ScreenWidth`] or [`SmallestLength::ScreenHeight`].
-    pub(crate) fn to_real_size(&self, parent: &RealSize) -> RealSize {
-        let width = self.width.to_real_length(parent);
-        let height = self.height.to_real_length(parent);
-        RealSize { width, height }
-    }
-
-    /// Used inside of [`NodeLayout::smallest_size`] to calculate the [`SmallestSize`].
+    /// Used inside of [`NodeLayout::smallest_size`] to calculate the [`RealSize`] for the children.
     ///
     /// 1. Converts from self space into child space (by subtracting the padding).
     /// 2. Calls the function with the child space.
     /// 3. Converts from the child space back into self space (by adding the padding).
-    /// 4. Sets the [`SmallestLength::ScreenWidth`] / [`SmallestLength::ScreenHeight`] to the self space.
-    pub(crate) fn with_padding<F>(&self, padding: &RealSize, f: F) -> Self
-        where F: FnOnce(&Self) -> RealSize {
+    pub(crate) fn with_padding<F>(&self, old_parent: &Self, padding: RealSize, f: F) -> Self
+        where F: FnOnce(Self) -> RealSize {
 
-        let parent = self - padding;
+        let new_parent = self.parent_to_screen(old_parent) - padding;
 
-        let smallest = f(&parent) + padding;
+        let children_size = f(new_parent) + padding;
 
-        self.smallest_to_screen(&smallest)
+        self.set_smallest(&children_size)
     }
 }
 
@@ -739,11 +457,11 @@ impl std::ops::Sub<RealSize> for SmallestSize {
     fn sub(self, rhs: RealSize) -> Self {
         Self {
             width: match self.width {
-                SmallestLength::Screen(x) => (x - rhs.width).max(0.0),
+                SmallestLength::Screen(x) => SmallestLength::Screen((x - rhs.width).max(0.0)),
                 x => x,
             },
             height: match self.height {
-                SmallestLength::Screen(x) => (x - rhs.height).max(0.0),
+                SmallestLength::Screen(x) => SmallestLength::Screen((x - rhs.height).max(0.0)),
                 x => x,
             },
         }
@@ -807,7 +525,7 @@ impl Length {
         }
     }
 
-    fn smallest_length(&self, parent: &SmallestSize, screen: &ScreenLength) -> SmallestLength {
+    fn smallest_length(&self, screen: &ScreenLength) -> SmallestLength {
         match self {
             Self::Zero => SmallestLength::Screen(0.0),
             Self::Px(x) => SmallestLength::Screen(*x as Percentage / screen.pixels),
@@ -815,23 +533,16 @@ impl Length {
             Self::ScreenWidth(x) => SmallestLength::Screen(x * screen.ratio.width),
             Self::ScreenHeight(x) => SmallestLength::Screen(x * screen.ratio.height),
 
-            Self::ParentWidth(x) => match parent.width {
-                SmallestLength::Screen(width) => SmallestLength::Screen(x * width),
-                _ => SmallestLength::ParentWidth(x),
-            },
+            Self::ParentWidth(x) => SmallestLength::ParentWidth(*x),
+            Self::ParentHeight(x) => SmallestLength::ParentHeight(*x),
 
-            Self::ParentHeight(x) => match parent.height {
-                SmallestLength::Screen(height) => SmallestLength::Screen(x * height),
-                _ => SmallestLength::ParentHeight(x),
-            },
-
-            Self::SmallestWidth(x) => SmallestLength::SmallestWidth(x),
-            Self::SmallestHeight(x) => SmallestLength::SmallestHeight(x),
+            Self::SmallestWidth(x) => SmallestLength::SmallestWidth(*x),
+            Self::SmallestHeight(x) => SmallestLength::SmallestHeight(*x),
         }
     }
 
     /// Converts from local space into screen space.
-    fn to_screen_space(&self, parent: &RealSize, smallest: &RealSize, screen: &ScreenLength) -> Percentage {
+    fn real_length(&self, parent: &RealSize, smallest: &RealSize, screen: &ScreenLength) -> Percentage {
         match self {
             Self::Zero => 0.0,
             Self::Px(x) => *x as Percentage / screen.pixels,
@@ -867,9 +578,9 @@ pub struct Offset {
 }
 
 impl Offset {
-    pub(crate) fn to_screen_space(&self, parent: &RealSize, smallest: &RealSize, screen: &ScreenSize) -> RealPosition {
-        let x = self.x.to_screen_space(parent, smallest, &screen.width);
-        let y = self.y.to_screen_space(parent, smallest, &screen.height);
+    pub(crate) fn real_position(&self, parent: &RealSize, smallest: &RealSize, screen: &ScreenSize) -> RealPosition {
+        let x = self.x.real_length(parent, smallest, &screen.width);
+        let y = self.y.real_length(parent, smallest, &screen.height);
         RealPosition { x, y }
     }
 }
@@ -896,15 +607,15 @@ pub struct Size {
 }
 
 impl Size {
-    pub(crate) fn smallest_size(&self, parent: &SmallestSize, screen: &ScreenSize) -> SmallestSize {
-        let width = self.width.smallest_length(parent, &screen.width);
-        let height = self.width.smallest_length(parent, &screen.height);
+    pub(crate) fn smallest_size(&self, screen: &ScreenSize) -> SmallestSize {
+        let width = self.width.smallest_length(&screen.width);
+        let height = self.height.smallest_length(&screen.height);
         SmallestSize { width, height }
     }
 
-    pub(crate) fn to_screen_space(&self, parent: &RealSize, smallest: &RealSize, screen: &ScreenSize) -> RealSize {
-        let width = self.width.to_screen_space(parent, smallest, &screen.width);
-        let height = self.height.to_screen_space(parent, smallest, &screen.height);
+    pub(crate) fn real_size(&self, parent: &RealSize, smallest: &RealSize, screen: &ScreenSize) -> RealSize {
+        let width = self.width.real_length(parent, smallest, &screen.width);
+        let height = self.height.real_length(parent, smallest, &screen.height);
         RealSize { width, height }
     }
 }
@@ -964,9 +675,9 @@ pub(crate) struct Location {
 
 impl Location {
     pub(crate) fn children_location(&self, parent: &RealLocation, smallest: &RealSize, screen: &ScreenSize) -> RealLocation {
-        let size = self.size.to_screen_space(&parent.size, smallest, screen);
-        let offset = self.offset.to_screen_space(&parent.size, smallest, screen);
-        let padding = self.padding.to_screen_space(&parent.size, smallest, screen);
+        let size = self.size.real_size(&parent.size, smallest, screen);
+        let offset = self.offset.real_position(&parent.size, smallest, screen);
+        let padding = self.padding.real_padding(&parent.size, smallest, screen);
 
         let origin = RealPosition {
             x: (parent.size.width - size.width) * self.origin.x,
@@ -1055,6 +766,8 @@ pub(crate) trait NodeLayout {
     /// Returns the smallest size in screen space.
     ///
     /// If the Node is invisible then this method MUST NOT be called.
+    ///
+    /// If the `parent` is [`SmallestLength::Screen`] then it MUST be the same as the `parent` in `update_layout`.
     fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize;
 
     /// Does re-layout AND re-render on the Node.
@@ -1063,8 +776,10 @@ pub(crate) trait NodeLayout {
     ///
     /// If the Node is visible then update_layout MUST be called.
     ///
-    /// The handle must be the same as this NodeLayout.
-    fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>);
+    /// The `handle` must be the same as this `NodeLayout`.
+    ///
+    /// The `smallest_size` must be the same as the result of calling `NodeLayout::smallest_size` on this `NodeLayout`.
+    fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>);
 
     /// Re-renders the Node.
     ///
@@ -1467,7 +1182,9 @@ impl Scene {
 
                 let parent = RealLocation::full();
 
-                lock.update_layout(child, &parent, &mut info);
+                let smallest_size = lock.smallest_size(&parent.size.smallest_size(), &mut info);
+
+                lock.update_layout(child, &parent, &smallest_size, &mut info);
             }
 
         } else if render_changed {

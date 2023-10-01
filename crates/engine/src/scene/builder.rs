@@ -182,19 +182,19 @@ impl NodeLayout for OptionNode {
         }
     }
 
-    fn smallest_size<'a>(&mut self, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
+    fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
         if let Some(child) = &self.child {
-            child.handle.lock().smallest_size(info)
+            child.handle.lock().smallest_size(parent, info)
 
         } else {
             SmallestSize::zero()
         }
     }
 
-    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, info: &mut SceneLayoutInfo<'a>) {
+    fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
         if let Some(child) = &self.child {
             let mut lock = child.handle.lock();
-            lock.update_layout(&child.handle, parent, info);
+            lock.update_layout(&child.handle, parent, smallest_size, info);
         }
     }
 
