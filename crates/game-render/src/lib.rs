@@ -468,7 +468,7 @@ impl Game {
             use grid::explosion::ExplosionAnimation;
             use util::random::random;
 
-            /*grid.spawn_futures(grid.terrain.iter().map(|tile| {
+            grid.spawn_futures(grid.terrain.iter().map(|tile| {
                 let x = tile.x as f32;
                 let y = tile.y as f32;
 
@@ -480,7 +480,7 @@ impl Game {
                         grid.explosion(ExplosionAnimation::Mega, Coord { x, y }).await;
                     }
                 })
-            }));*/
+            }));
 
             let futures = units.iter().map(clone!(grid => move |unit| {
                 let unit = unit.clone();
