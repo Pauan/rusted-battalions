@@ -12,6 +12,9 @@ struct ExplosionInfo {
     width: f32,
     height: f32,
 
+    offset_x: f32,
+    offset_y: f32,
+
     tile_x: u32,
     tile_y: u32,
     tile_width: u32,
@@ -35,40 +38,60 @@ impl ExplosionAnimation {
             Self::Land => ExplosionInfo {
                 width: 2.0,
                 height: 2.0,
+
+                offset_x: -0.5,
+                offset_y: -1.0,
+
                 tile_x: 0,
                 tile_y: 0,
                 tile_width: 32,
                 tile_height: 32,
+
                 frames: 9,
             },
 
             Self::Air => ExplosionInfo {
                 width: 2.0,
                 height: 2.0,
+
+                offset_x: -(6.0 / 16.0), // shift 6 pixels left
+                offset_y: -(6.0 / 16.0), // shift 5 pixels up
+
                 tile_x: 0,
                 tile_y: 32,
                 tile_width: 32,
                 tile_height: 32,
+
                 frames: 9,
             },
 
             Self::Sea => ExplosionInfo {
                 width: 2.0,
                 height: 2.0,
+
+                offset_x: -0.5,
+                offset_y: -1.0,
+
                 tile_x: 0,
                 tile_y: 64,
                 tile_width: 32,
                 tile_height: 32,
+
                 frames: 7,
             },
 
             Self::Mega => ExplosionInfo {
                 width: 7.0,
                 height: 3.0,
+
+                offset_x: -3.0,
+                offset_y: -2.0,
+
                 tile_x: 0,
                 tile_y: 96,
                 tile_width: 112,
                 tile_height: 48,
+
                 frames: 12,
             },
         }
@@ -118,19 +141,22 @@ impl Explosion {
         engine::Sprite::builder()
             .spritesheet(game.spritesheets.effect.clone())
 
-            .order(Order::Parent(grid.order(&this.coord) + 0.75))
+            .apply(|builder| {
+                match this.animation {
+                    // Air explosion is always displayed on top of everything else.
+                    ExplosionAnimation::Air => builder.order(Order::Above(1.0)),
+
+                    // Other explosions follow the usual order, so they can be obscured by mountains / forests.
+                    _ => builder.order(Order::Parent(grid.order(&this.coord) + 0.75)),
+                }
+            })
 
             .offset({
                 let (x, y) = grid.tile_offset(&this.coord);
 
-                let half_x = grid.width * 0.5;
-
-                let origin_x = half_x * info.width;
-                let origin_y = grid.height * (info.height - 1.0);
-
                 Offset {
-                    x: ParentWidth(x - origin_x + half_x),
-                    y: ParentHeight(y - origin_y),
+                    x: ParentWidth(x + (info.offset_x * grid.width)),
+                    y: ParentHeight(y + (info.offset_y * grid.height)),
                 }
             })
 

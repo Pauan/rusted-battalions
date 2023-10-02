@@ -181,8 +181,8 @@ impl Game {
                 }.into())
 
                 .center(BitmapText::builder()
-                    .text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello world goodbye world\n世界你好再見世界 世界你好再见世界\nनमस्कार जगत विदाई जगत\nสวัสดีชาวโลก ลาก่อนชาวโลก\nສະບາຍດີໂລກ ສະບາຍດີໂລກ\nمرحباً أيها العالم وداعاً أيها العالم\n\nT\u{031A}e\u{0303}s\u{0309}t\u{0310}i\u{1AB4}n\u{20DD}g  o\u{0489}\n\u{0000}\u{0000}\u{0000}\u{0000}T\u{0000}e\u{0000}s\u{0000}t\u{0000}i\u{0000}n\u{0000}g\n\nH̶̢̜̣̰̮͔̜̞͕̖̤͈̒͋͊̇̆̓͗͘ę̶̛͉͎̲̙͈͛̆̇̐̍̓͝͝ͅļ̵̰͓̗̩͎̈̓̎͗̈̇̓̀̀̓͘l̶̡̧̧̛̝͈̻͎̱̰̘͚̪̝̰̫̠̼͔̥̝͚͉̻̙̰̟̫͍̫̳̟̟͕̪̝͚̀́̆̓̉̒̓̈̿͌̀̃͑̚͘ͅͅǫ̵̨̢̢̡̛̙̼̤͍̩̘̬̟̞̹͔͕͙̠͉̟̥̲̝̙̥̺͉͇͓̱̗͖͖͔͍̪̰̳̳̩̠̿̇̍̐̈́́͌̓̀̊́̑̈́̈̊̋̃͛̇̃̍̇͌̆́͜͜͜͜͜͝ ̶̛̫̭͈͎̆̍̌̎̄͌̂̋̉̈́́̀͌́̐̆̓͊̽̉̎́̌̆̾̽͌́̕͘͘͘͘͘͜ẗ̴̘̙̜̤̳̺́̍̃̿̆̌̊͒̀̾̍̋̄̍̇͆͂̀͋̏̈̓̓͘͘͝͝h̵̨̪͓̯̫̯̥͇̭̭̱͉̯̮̻͙̘̻̩̠͉̥̰̟̰̗̠͕̘͈̘͎͉̜̞̤̪͖̍͂͂̋̀̃́̍̍̊̾̊̆̃͂̃̆̊̈́̔̐̽̓͘͘̕̚͘͜͝͝e̴̠̘̹͍̝̐́̂̕͝͠r̴̨̢̨̨̡̤̰͔̬̘͉̩̺̭͓̦̠̞̺͇̲̭̉͆͆͗̅̉̉̾̐̐̈́́̉͛̾͌͗͑́͋̎͗́̑͘̚̕͠͠͝͝ͅȩ̸̧̛̛̳̤̞͇̄̀̀͒̾̾͗͋̓̄̽̃͂̓͑͛̈͋̾̈́̊̔̕̕͝͝ ̶̧̡̗̳̗̳͋̈́͋̅̆͛͗͌̆̆͂̿͌͐͒͑͆m̴̧̢̢̛͎͉̩̺̥̲̺͙͎̱̱̖̼̪͍̪̱̬̩̮̞̲͈̫̭͕̗͈͉̥̙̣̺̻̩̯̪̒̆̈́̂̈́̀͊̑̅͂̀͂͊͑̽̽̃́͛̽̿͗̀̈́̀̓̈́̕͘͘̕͜͜͠ͅy̷̧͍͉̲̟̙͉͍̍̂̍͋̾̈́̋̒͌́̿̏͒̒́̊̈́͆̒́̊̆̈̀̎͛̏̆̈́̓̓̒̆͘̕͠͝ ̵̛͓̲̠͖̠̞͂̓̈͆͆̈́̇̇̄͒͋͑̉̏̈́̓́͐̅͐̉̃̃̚̕͘f̴̧̨̩̱̖̜͔̜̣͎̜͖̰̦͈̞̳̥͙̺̜̺̻̳̦̗̜̣͔̘̲̻̩̙̫̱͆̃͊̓͌̈́͊̂̌̊͐͊̂̋̑̂͗͑͜ͅŗ̵̮̺̱͔͖͖̖̲̯͚̬̰͎̜̺̫̠̮̺̰̮͖̳̜̈́̓̇̈́̓͊͋̓̈̀͌͊̆̈̂͑́̊̕͝í̸̢̡̨̢̡̡͇̪̗̬̹̺̝̪͍͙̻̯̲̮͔̼̟̰̞̱̩̱͉̭̹̬͚̼̮͎͚̙̤̱̰̙̯̩̼̬̊̋̓̏̅̒̔͋͑̿̀͛͊͒͌̄̔̉͠ͅͅê̷̛̘̣̞̮͉͙̣̘̦̝̯̰̠͉͉̖̞̘̰͕̻̯̰͖͙̜͖̮͉̖̪̲̪̩͇̥̠͎̲̜͓͈̥̋̈́̄͛͗̈́̿̀͌͘͜͜͠ͅͅͅñ̷̨̡̧̗̣̣̠̥̺̫͓̹̲͓̮̜͕̯̦͚͓̝̩̲͕̳̹͓̻̝̺̼͇̟̜̙̬̤͚̭̠̪̼̫̣̬͈̎̆̒̅͋͛̃͐͌͒̏̃͊̕͜͜ͅd̵̢̧̡̛͚͕͍͖̯̝̦̠̬̬̺̩̯̜̠̱̥̤̼͖̪͙̪̩̼̠͚̘͍̎̏̃.̸̨̩̖̱̭̯̤͔͓͎̙̼̲̮͍͉̦͓͙̠̦̲͈̯͉̯̱̲͙̤̳͍̏̽̂̂͊̈̀̇̐̉́̀̑͑́̌̈́̾̇̏̈͒̊̉̾̀̓̀̋͆͗͌̌̊͐͋̀̈́̀͑̐͋̾͊̚͜͠ͅͅ".into())
-                    //.text("This is a UI dialog box.\n\nHello world!\n\nGoodbye world!".into())
+                    //.text(" '-.\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\nÆÖÜß\nàáäæèéêíïñóùü\n\nHello world goodbye world\n世界你好再見世界 世界你好再见世界\nनमस्कार जगत विदाई जगत\nสวัสดีชาวโลก ลาก่อนชาวโลก\nສະບາຍດີໂລກ ສະບາຍດີໂລກ\nمرحباً أيها العالم وداعاً أيها العالم\n\nT\u{031A}e\u{0303}s\u{0309}t\u{0310}i\u{1AB4}n\u{20DD}g  o\u{0489}\n\u{0000}\u{0000}\u{0000}\u{0000}T\u{0000}e\u{0000}s\u{0000}t\u{0000}i\u{0000}n\u{0000}g\n\nH̶̢̜̣̰̮͔̜̞͕̖̤͈̒͋͊̇̆̓͗͘ę̶̛͉͎̲̙͈͛̆̇̐̍̓͝͝ͅļ̵̰͓̗̩͎̈̓̎͗̈̇̓̀̀̓͘l̶̡̧̧̛̝͈̻͎̱̰̘͚̪̝̰̫̠̼͔̥̝͚͉̻̙̰̟̫͍̫̳̟̟͕̪̝͚̀́̆̓̉̒̓̈̿͌̀̃͑̚͘ͅͅǫ̵̨̢̢̡̛̙̼̤͍̩̘̬̟̞̹͔͕͙̠͉̟̥̲̝̙̥̺͉͇͓̱̗͖͖͔͍̪̰̳̳̩̠̿̇̍̐̈́́͌̓̀̊́̑̈́̈̊̋̃͛̇̃̍̇͌̆́͜͜͜͜͜͝ ̶̛̫̭͈͎̆̍̌̎̄͌̂̋̉̈́́̀͌́̐̆̓͊̽̉̎́̌̆̾̽͌́̕͘͘͘͘͘͜ẗ̴̘̙̜̤̳̺́̍̃̿̆̌̊͒̀̾̍̋̄̍̇͆͂̀͋̏̈̓̓͘͘͝͝h̵̨̪͓̯̫̯̥͇̭̭̱͉̯̮̻͙̘̻̩̠͉̥̰̟̰̗̠͕̘͈̘͎͉̜̞̤̪͖̍͂͂̋̀̃́̍̍̊̾̊̆̃͂̃̆̊̈́̔̐̽̓͘͘̕̚͘͜͝͝e̴̠̘̹͍̝̐́̂̕͝͠r̴̨̢̨̨̡̤̰͔̬̘͉̩̺̭͓̦̠̞̺͇̲̭̉͆͆͗̅̉̉̾̐̐̈́́̉͛̾͌͗͑́͋̎͗́̑͘̚̕͠͠͝͝ͅȩ̸̧̛̛̳̤̞͇̄̀̀͒̾̾͗͋̓̄̽̃͂̓͑͛̈͋̾̈́̊̔̕̕͝͝ ̶̧̡̗̳̗̳͋̈́͋̅̆͛͗͌̆̆͂̿͌͐͒͑͆m̴̧̢̢̛͎͉̩̺̥̲̺͙͎̱̱̖̼̪͍̪̱̬̩̮̞̲͈̫̭͕̗͈͉̥̙̣̺̻̩̯̪̒̆̈́̂̈́̀͊̑̅͂̀͂͊͑̽̽̃́͛̽̿͗̀̈́̀̓̈́̕͘͘̕͜͜͠ͅy̷̧͍͉̲̟̙͉͍̍̂̍͋̾̈́̋̒͌́̿̏͒̒́̊̈́͆̒́̊̆̈̀̎͛̏̆̈́̓̓̒̆͘̕͠͝ ̵̛͓̲̠͖̠̞͂̓̈͆͆̈́̇̇̄͒͋͑̉̏̈́̓́͐̅͐̉̃̃̚̕͘f̴̧̨̩̱̖̜͔̜̣͎̜͖̰̦͈̞̳̥͙̺̜̺̻̳̦̗̜̣͔̘̲̻̩̙̫̱͆̃͊̓͌̈́͊̂̌̊͐͊̂̋̑̂͗͑͜ͅŗ̵̮̺̱͔͖͖̖̲̯͚̬̰͎̜̺̫̠̮̺̰̮͖̳̜̈́̓̇̈́̓͊͋̓̈̀͌͊̆̈̂͑́̊̕͝í̸̢̡̨̢̡̡͇̪̗̬̹̺̝̪͍͙̻̯̲̮͔̼̟̰̞̱̩̱͉̭̹̬͚̼̮͎͚̙̤̱̰̙̯̩̼̬̊̋̓̏̅̒̔͋͑̿̀͛͊͒͌̄̔̉͠ͅͅê̷̛̘̣̞̮͉͙̣̘̦̝̯̰̠͉͉̖̞̘̰͕̻̯̰͖͙̜͖̮͉̖̪̲̪̩͇̥̠͎̲̜͓͈̥̋̈́̄͛͗̈́̿̀͌͘͜͜͠ͅͅͅñ̷̨̡̧̗̣̣̠̥̺̫͓̹̲͓̮̜͕̯̦͚͓̝̩̲͕̳̹͓̻̝̺̼͇̟̜̙̬̤͚̭̠̪̼̫̣̬͈̎̆̒̅͋͛̃͐͌͒̏̃͊̕͜͜ͅd̵̢̧̡̛͚͕͍͖̯̝̦̠̬̬̺̩̯̜̠̱̥̤̼͖̪͙̪̩̼̠͚̘͍̎̏̃.̸̨̩̖̱̭̯̤͔͓͎̙̼̲̮͍͉̦͓͙̠̦̲͈̯͉̯̱̲͙̤̳͍̏̽̂̂͊̈̀̇̐̉́̀̑͑́̌̈́̾̇̏̈͒̊̉̾̀̓̀̋͆͗͌̌̊͐͋̀̈́̀͑̐͋̾͊̚͜͠ͅͅ".into())
+                    .text("This is a UI dialog box.\n\nHello world!\n\nGoodbye world!".into())
                     .font(this.fonts.unifont.clone())
                     .offset(Offset {
                         x: Zero,
@@ -478,6 +478,126 @@ impl Game {
             use grid::action::MoveDirection;
             use grid::explosion::ExplosionAnimation;
             use util::random::random;
+
+            grid.spawn_future(clone!(grid => async move {
+                let fighter = Unit::new(
+                    Coord { x: 12.0, y: 3.0 },
+                    UnitClass::Fighter,
+                    Nation::BlackHole,
+                );
+
+                grid.units.insert(fighter.clone());
+
+                let bomber = Unit::new(
+                    Coord { x: 14.0, y: 3.0 },
+                    UnitClass::Bomber,
+                    Nation::BlackHole,
+                );
+
+                grid.units.insert(bomber.clone());
+
+                let black_bomb = Unit::new(
+                    Coord { x: 16.0, y: 3.0 },
+                    UnitClass::BlackBomb,
+                    Nation::BlackHole,
+                );
+
+                grid.units.insert(black_bomb.clone());
+
+                let stealth = Unit::new(
+                    Coord { x: 18.0, y: 3.0 },
+                    UnitClass::Stealth,
+                    Nation::BlackHole,
+                );
+
+                grid.units.insert(stealth.clone());
+
+                let bcopter = Unit::new(
+                    Coord { x: 20.0, y: 3.0 },
+                    UnitClass::BCopter,
+                    Nation::BlackHole,
+                );
+
+                grid.units.insert(bcopter.clone());
+
+                let tcopter = Unit::new(
+                    Coord { x: 22.0, y: 3.0 },
+                    UnitClass::TCopter,
+                    Nation::BlackHole,
+                );
+
+                grid.units.insert(tcopter.clone());
+
+                let tank = Unit::new(
+                    Coord { x: 12.0, y: 6.0 },
+                    UnitClass::Tank,
+                    Nation::BlackHole,
+                );
+
+                grid.units.insert(tank.clone());
+
+                let battleship = Unit::new(
+                    Coord { x: 16.0, y: 6.0 },
+                    UnitClass::Battleship,
+                    Nation::BlackHole,
+                );
+
+                grid.units.insert(battleship.clone());
+
+                let megatank = Unit::new(
+                    Coord { x: 20.0, y: 6.0 },
+                    UnitClass::MegaTank,
+                    Nation::BlackHole,
+                );
+
+                grid.units.insert(megatank.clone());
+            }));
+
+            grid.spawn_futures([(1.0, 2.0)].into_iter().map(|(x, y)| {
+                clone!(grid => async move {
+                    loop {
+                        grid.wait(1_000.0).await;
+                        grid.explosion(ExplosionAnimation::Land, Coord { x, y }).await;
+                    }
+                })
+            }));
+
+            grid.spawn_futures([12.0, 14.0, 16.0, 18.0, 20.0, 22.0].into_iter().map(|x| {
+                clone!(grid => async move {
+                    loop {
+                        grid.wait(1_000.0).await;
+                        grid.explosion(ExplosionAnimation::Air, Coord { x, y: 3.0 }).await;
+                    }
+                })
+            }));
+
+            grid.spawn_futures([12.0].into_iter().map(|x| {
+                clone!(grid => async move {
+                    loop {
+                        grid.wait(1_000.0).await;
+                        grid.explosion(ExplosionAnimation::Land, Coord { x, y: 6.0 }).await;
+                    }
+                })
+            }));
+
+            grid.spawn_futures([16.0].into_iter().map(|x| {
+                clone!(grid => async move {
+                    loop {
+                        grid.wait(1_000.0).await;
+                        grid.explosion(ExplosionAnimation::Sea, Coord { x, y: 6.0 }).await;
+                    }
+                })
+            }));
+
+            grid.spawn_futures([20.0].into_iter().map(|x| {
+                clone!(grid => async move {
+                    loop {
+                        grid.wait(1_000.0).await;
+                        grid.explosion(ExplosionAnimation::Mega, Coord { x, y: 6.0 }).await;
+                    }
+                })
+            }));
+
 
             grid.spawn_futures(grid.terrain.iter().map(|tile| {
                 let x = tile.x as f32;
