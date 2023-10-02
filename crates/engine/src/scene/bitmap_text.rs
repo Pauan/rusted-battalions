@@ -3,7 +3,7 @@ use wgpu_helpers::VertexLayout;
 use bytemuck::{Pod, Zeroable};
 use futures_signals::signal::{Signal, SignalExt};
 
-use crate::{Engine, Handle};
+use crate::{DEBUG, Engine, Handle};
 use crate::util::unicode;
 use crate::util::macros::wgsl;
 use crate::util::buffer::{Uniform, InstanceVec, InstanceVecOptions, GrayscaleImage, TextureBuffer};
@@ -150,8 +150,6 @@ impl BitmapText {
             debug_assert_eq!(self.glyphs.len(), 0);
 
         } else {
-            log::warn!("{:?}", max_width);
-
             for text_line in self.text.lines() {
                 let mut width = 0.0;
 
@@ -323,16 +321,12 @@ impl NodeLayout for BitmapText {
     fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
         assert_eq!(self.glyphs.len(), 0);
 
-        log::warn!("{:?}", parent);
-
         let smallest_size = self.location.size.smallest_size(&info.screen_size).parent_to_smallest(parent);
 
         if smallest_size.is_smallest() {
             let padding = self.location.padding.to_screen(parent, &smallest_size, &info.screen_size);
 
             smallest_size.with_padding(parent, padding, |parent| {
-                log::warn!("{:?}", parent);
-
                 self.children_size(&parent, &info.screen_size)
             })
 
@@ -504,6 +498,10 @@ impl BitmapTextRenderer {
 
         for (_, font) in self.fonts.iter_mut() {
             let instances = font.sprites.len() as u32;
+
+            if DEBUG {
+                log::warn!("BitmapText {}", instances);
+            }
 
             let bind_groups = vec![
                 scene_uniform,

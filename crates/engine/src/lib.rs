@@ -16,6 +16,7 @@ pub use scene::*;
 
 
 const HAS_STENCIL: bool = false;
+pub(crate) const DEBUG: bool = false;
 
 
 #[derive(Debug, Clone, Copy)]

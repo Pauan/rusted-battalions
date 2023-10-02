@@ -109,6 +109,8 @@ impl NodeLayout for Stack {
 
             lock.update_layout(&child.handle, &this_location, &child.size, info);
         }
+
+        self.computed_children.clear();
     }
 
     fn render<'a>(&mut self, _info: &mut SceneRenderInfo<'a>) {}

@@ -194,6 +194,8 @@ impl NodeLayout for Grid {
                 child_location.position.x = this_location.position.x + width;
             }
         }
+
+        self.computed_grid_size = RealSize::zero();
     }
 
     fn render<'a>(&mut self, _info: &mut SceneRenderInfo<'a>) {}

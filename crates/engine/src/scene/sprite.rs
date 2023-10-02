@@ -2,6 +2,7 @@ use wgpu_helpers::VertexLayout;
 use bytemuck::{Pod, Zeroable};
 use futures_signals::signal::{Signal, SignalExt};
 
+use crate::DEBUG;
 use crate::util::macros::wgsl;
 use crate::util::builders;
 use crate::util::buffer::{
@@ -534,6 +535,10 @@ impl SpriteRenderer {
 
         for (_, sheet) in self.spritesheets.iter_mut() {
             let instances = sheet.sprites.len() as u32;
+
+            if DEBUG {
+                log::warn!("Spritesheet {}", instances);
+            }
 
             let bind_groups = vec![
                 scene_uniform,

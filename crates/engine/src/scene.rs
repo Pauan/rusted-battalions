@@ -2,7 +2,7 @@ use bytemuck::{Zeroable, Pod};
 use std::future::Future;
 use std::pin::Pin;
 
-use crate::Spawner;
+use crate::{DEBUG, Spawner};
 use crate::util::{Arc, Atomic, Lock};
 use crate::util::buffer::{Uniform, TextureBuffer, IntoTexture};
 use sprite::{SpriteRenderer};
@@ -1157,6 +1157,10 @@ impl Scene {
     pub(crate) fn prerender<'a>(&'a mut self, engine: &crate::EngineState) -> ScenePrerender<'a> {
         let layout_changed = self.changed.replace_layout_changed();
         let render_changed = self.changed.replace_render_changed();
+
+        if DEBUG {
+            log::warn!("rendered_nodes {}", self.rendered_nodes.len());
+        }
 
         if layout_changed {
             self.renderer.before_layout();
