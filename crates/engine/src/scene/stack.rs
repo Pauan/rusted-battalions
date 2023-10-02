@@ -86,7 +86,7 @@ impl NodeLayout for Stack {
     }
 
     fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
-        let smallest_size = self.location.size.smallest_size(&info.screen_size);
+        let smallest_size = self.location.size.smallest_size(&info.screen_size).parent_to_smallest(parent);
 
         let padding = self.location.padding.to_screen(parent, &smallest_size, &info.screen_size);
 

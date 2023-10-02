@@ -332,6 +332,25 @@ impl SmallestLength {
         }
     }
 
+    /// Potentially converts ParentWidth / ParentHeight into SmallestWidth / SmallestHeight
+    fn parent_to_smallest(&self, parent: &SmallestSize) -> Self {
+        match self {
+            Self::ParentWidth(x) => match parent.width {
+                Self::SmallestWidth(y) => Self::SmallestWidth(x * y),
+                Self::SmallestHeight(y) => Self::SmallestHeight(x * y),
+                _ => Self::ParentWidth(*x),
+            },
+
+            Self::ParentHeight(x) => match parent.height {
+                Self::SmallestWidth(y) => Self::SmallestWidth(x * y),
+                Self::SmallestHeight(y) => Self::SmallestHeight(x * y),
+                _ => Self::ParentHeight(*x),
+            },
+
+            x => *x,
+        }
+    }
+
     /// Converts the SmallestWidth / SmallestHeight into Screen.
     fn set_smallest(&self, smallest: &RealSize) -> Self {
         match self {
@@ -408,6 +427,13 @@ impl SmallestSize {
     pub(crate) fn parent_to_screen(&self, parent: &SmallestSize) -> Self {
         let width = self.width.parent_to_screen(parent);
         let height = self.height.parent_to_screen(parent);
+        Self { width, height }
+    }
+
+    /// Potentially converts ParentWidth / ParentHeight into SmallestWidth / SmallestHeight
+    pub(crate) fn parent_to_smallest(&self, parent: &SmallestSize) -> Self {
+        let width = self.width.parent_to_smallest(parent);
+        let height = self.height.parent_to_smallest(parent);
         Self { width, height }
     }
 

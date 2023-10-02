@@ -150,6 +150,8 @@ impl BitmapText {
             debug_assert_eq!(self.glyphs.len(), 0);
 
         } else {
+            log::warn!("{:?}", max_width);
+
             for text_line in self.text.lines() {
                 let mut width = 0.0;
 
@@ -321,12 +323,16 @@ impl NodeLayout for BitmapText {
     fn smallest_size<'a>(&mut self, parent: &SmallestSize, info: &mut SceneLayoutInfo<'a>) -> SmallestSize {
         assert_eq!(self.glyphs.len(), 0);
 
-        let smallest_size = self.location.size.smallest_size(&info.screen_size);
+        log::warn!("{:?}", parent);
+
+        let smallest_size = self.location.size.smallest_size(&info.screen_size).parent_to_smallest(parent);
 
         if smallest_size.is_smallest() {
             let padding = self.location.padding.to_screen(parent, &smallest_size, &info.screen_size);
 
             smallest_size.with_padding(parent, padding, |parent| {
+                log::warn!("{:?}", parent);
+
                 self.children_size(&parent, &info.screen_size)
             })
 

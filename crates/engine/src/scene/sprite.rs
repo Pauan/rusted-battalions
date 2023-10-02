@@ -217,7 +217,7 @@ impl Sprite {
 make_builder!(Sprite, SpriteBuilder);
 base_methods!(Sprite, SpriteBuilder);
 
-location_methods!(Sprite, SpriteBuilder, true, |state| {
+location_methods!(Sprite, SpriteBuilder, false, |state| {
     state.location_changed();
 });
 
