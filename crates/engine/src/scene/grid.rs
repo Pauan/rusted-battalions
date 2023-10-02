@@ -3,7 +3,7 @@ use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method, children_methods};
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Padding, Length, SmallestSize, SmallestLength,
-    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize, RealSize,
+    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize, RealSize, Order,
 };
 
 
@@ -160,7 +160,7 @@ impl NodeLayout for Grid {
     }
 
     fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
-        let this_location = self.location.children_location(parent, &smallest_size.real_size(), &info.screen_size);
+        let this_location = self.location.children_location(parent, &smallest_size.real_size(), &info);
 
         let max_width = this_location.size.width;
 
@@ -181,12 +181,6 @@ impl NodeLayout for Grid {
                     child_location.position.x = this_location.position.x;
                     child_location.move_down(child_location.size.height);
                 }
-
-                let max_z_index = info.renderer.get_max_z_index();
-
-                assert!(max_z_index >= this_location.z_index);
-
-                child_location.z_index = max_z_index;
 
                 let smallest = lock.smallest_size(&child_location.size.smallest_size(), info);
                 lock.update_layout(child, &child_location, &smallest, info);

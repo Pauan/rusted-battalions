@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use futures_signals::signal::SignalExt;
 use rusted_battalions_engine as engine;
-use rusted_battalions_engine::{Size, Offset, Tile, Node, ParentWidth, ParentHeight};
+use rusted_battalions_engine::{Size, Offset, Tile, Node, ParentWidth, ParentHeight, Order};
 
 use crate::grid::{Game, Grid, Coord, TERRAIN_ANIMATION_TIME};
 use crate::util::random::{random};
@@ -781,7 +781,7 @@ impl TerrainTile {
                 }
             })
 
-            .z_index(grid.z_index(&coord))
+            .order(Order::Parent(grid.order(&coord)))
 
             .offset(Offset {
                 x: ParentWidth(x),

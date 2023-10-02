@@ -4,7 +4,7 @@ use futures_signals::signal::{Mutable, Signal, SignalExt};
 use futures_signals::signal_vec::{SignalVecExt};
 use dominator::clone;
 use rusted_battalions_engine as engine;
-use rusted_battalions_engine::{Node};
+use rusted_battalions_engine::{Node, Order};
 
 use crate::{Game};
 use crate::util::future::{FutureSpawner};
@@ -209,7 +209,7 @@ impl Grid {
         )
     }
 
-    pub(crate) fn z_index(&self, coord: &Coord) -> f32 {
+    pub(crate) fn order(&self, coord: &Coord) -> f32 {
         coord.y.ceil()
     }
 
@@ -225,12 +225,14 @@ impl Grid {
             }))
 
             .child(engine::Stack::builder()
+                .order(Order::Parent(0.0))
                 .children_signal_vec(this.units.signal_vec().map(clone!(game, this => move |unit| {
                     Unit::render(&game, &this, &unit)
                 })))
                 .build())
 
             .child(engine::Stack::builder()
+                .order(Order::Parent(0.0))
                 .children_signal_vec(this.explosions.signal_vec().map(clone!(game, this => move |explosion| {
                     Explosion::render(&game, &this, &explosion)
                 })))

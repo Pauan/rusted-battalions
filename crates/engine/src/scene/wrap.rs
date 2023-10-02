@@ -3,7 +3,7 @@ use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Padding, SmallestSize, SmallestLength,
-    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
+    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize, Order,
 };
 
 
@@ -129,7 +129,7 @@ impl NodeLayout for Wrap {
     }
 
     fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
-        let this_location = self.location.children_location(parent, &smallest_size.real_size(), &info.screen_size);
+        let this_location = self.location.children_location(parent, &smallest_size.real_size(), &info);
 
         {
             let mut child_location = this_location;
@@ -139,12 +139,6 @@ impl NodeLayout for Wrap {
 
                 for child in row.children.iter() {
                     child_location.size.width = child.width;
-
-                    let max_z_index = info.renderer.get_max_z_index();
-
-                    assert!(max_z_index >= this_location.z_index);
-
-                    child_location.z_index = max_z_index;
 
                     child.handle.lock().update_layout(&child.handle, &child_location, &child.size, info);
 

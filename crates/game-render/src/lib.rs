@@ -14,7 +14,7 @@ use rusted_battalions_engine::{
     GrayscaleImage, IndexedImage, Texture, Node, BitmapFont, Offset,
     CharSize, ColorRgb, BitmapText, BitmapFontSettings, BitmapFontSupported,
     ParentWidth, ParentHeight, Px, ScreenHeight, RepeatTile, Repeat, Zero,
-    SmallestWidth, SmallestHeight, Size,
+    SmallestWidth, SmallestHeight, Size, Order,
 };
 
 use crate::util::future::executor;
@@ -186,7 +186,6 @@ impl Game {
                         /*width: ParentWidth(1.0 / 30.0),
                         height: ParentWidth(4.0 / 30.0),*/
                     })
-                    .z_index(9000.0)
                     .build())
 
                 /*.center(BitmapText::builder()

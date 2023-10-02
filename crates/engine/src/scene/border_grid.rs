@@ -3,7 +3,7 @@ use crate::scene::builder::{Node, make_builder, base_methods, location_methods, 
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Padding, Length, SmallestSize,
     RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize,
-    RealSize, RealPosition,
+    RealSize, RealPosition, Order,
 };
 
 
@@ -195,7 +195,7 @@ impl NodeLayout for BorderGrid {
 
         let smallest_size = smallest_size.real_size();
 
-        let this_location = self.location.children_location(parent, &smallest_size, &info.screen_size);
+        let this_location = self.location.children_location(parent, &smallest_size, &info);
 
         let size_up = border_size.up.real_length(&parent.size, &smallest_size, &info.screen_size.height);
         let size_down = border_size.down.real_length(&parent.size, &smallest_size, &info.screen_size.height);
@@ -224,7 +224,7 @@ impl NodeLayout for BorderGrid {
                 width: size_left,
                 height: size_up,
             },
-            z_index: info.renderer.get_max_z_index(),
+            order: this_location.order,
         });
 
         Self::update_child(&quadrants.up, info, &RealLocation {
@@ -236,7 +236,7 @@ impl NodeLayout for BorderGrid {
                 width: center_width,
                 height: size_up,
             },
-            z_index: info.renderer.get_max_z_index(),
+            order: this_location.order,
         });
 
         Self::update_child(&quadrants.up_right, info, &RealLocation {
@@ -248,7 +248,7 @@ impl NodeLayout for BorderGrid {
                 width: size_right,
                 height: size_up,
             },
-            z_index: info.renderer.get_max_z_index(),
+            order: this_location.order,
         });
 
 
@@ -261,7 +261,7 @@ impl NodeLayout for BorderGrid {
                 width: size_left,
                 height: center_height,
             },
-            z_index: info.renderer.get_max_z_index(),
+            order: this_location.order,
         });
 
         {
@@ -277,7 +277,7 @@ impl NodeLayout for BorderGrid {
                         width: center_width,
                         height: center_height,
                     },
-                    z_index: info.renderer.get_max_z_index(),
+                    order: this_location.order,
                 };
 
                 let smallest = match self.center_size {
@@ -298,7 +298,7 @@ impl NodeLayout for BorderGrid {
                 width: size_right,
                 height: center_height,
             },
-            z_index: info.renderer.get_max_z_index(),
+            order: this_location.order,
         });
 
 
@@ -311,7 +311,7 @@ impl NodeLayout for BorderGrid {
                 width: size_left,
                 height: size_down,
             },
-            z_index: info.renderer.get_max_z_index(),
+            order: this_location.order,
         });
 
         Self::update_child(&quadrants.down, info, &RealLocation {
@@ -323,7 +323,7 @@ impl NodeLayout for BorderGrid {
                 width: center_width,
                 height: size_down,
             },
-            z_index: info.renderer.get_max_z_index(),
+            order: this_location.order,
         });
 
         Self::update_child(&quadrants.down_right, info, &RealLocation {
@@ -335,7 +335,7 @@ impl NodeLayout for BorderGrid {
                 width: size_right,
                 height: size_down,
             },
-            z_index: info.renderer.get_max_z_index(),
+            order: this_location.order,
         });
 
 

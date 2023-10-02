@@ -4,7 +4,7 @@ use crate::scene::builder::{Node, make_builder, base_methods, location_methods, 
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Percentage, Padding, SmallestSize,
     SmallestLength, RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
-    internal_panic,
+    Order, internal_panic,
 };
 
 
@@ -137,17 +137,13 @@ impl NodeLayout for Row {
     }
 
     fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
-        let mut this_location = self.location.children_location(parent, &smallest_size.real_size(), &info.screen_size);
+        let mut this_location = self.location.children_location(parent, &smallest_size.real_size(), &info);
 
         let empty_space = (this_location.size.width - self.min_width).max(0.0);
 
         let stretch_percentage = empty_space * (1.0 / self.ratio_sum);
 
         for child in self.computed_children.iter() {
-            let max_z_index = info.renderer.get_max_z_index();
-
-            assert!(max_z_index >= this_location.z_index);
-
             let child_size = match child.size.width {
                 SmallestLength::Screen(width) => {
                     RealSize {
@@ -170,7 +166,7 @@ impl NodeLayout for Row {
             let child_location = RealLocation {
                 position: this_location.position,
                 size: child_size,
-                z_index: max_z_index,
+                order: this_location.order,
             };
 
             child.handle.lock().update_layout(&child.handle, &child_location, &child.size, info);

@@ -428,17 +428,17 @@ macro_rules! location_methods {
             );
 
             $crate::scene::builder::simple_method!(
-                /// Z-index of the node.
+                /// Specifies the order of which nodes are drawn on top of other nodes.
                 ///
-                /// Nodes with higher z-index will display on top of nodes with a lower z-index.
+                /// Nodes with a higher order will display on top of nodes with a lower order.
                 ///
-                /// The default is `0.0` which means the z-index doesn't change (it is the same as the parent).
-                z_index,
-                z_index_signal,
-                $trigger_relayout,
+                /// The default is `Order::Above(1.0)` which means the node will display on top of all previous nodes.
+                order,
+                order_signal,
                 true,
-                |state, value: f32| {
-                    state.location.z_index = value;
+                true,
+                |state, value: Order| {
+                    state.location.order = value;
 
                     let $var = state;
                     $body

@@ -133,7 +133,7 @@ pub(crate) struct RealPadding {
 pub(crate) struct RealLocation {
     pub(crate) position: RealPosition,
     pub(crate) size: RealSize,
-    pub(crate) z_index: f32,
+    pub(crate) order: f32,
 }
 
 impl RealLocation {
@@ -148,7 +148,7 @@ impl RealLocation {
                 width: 1.0,
                 height: 1.0,
             },
-            z_index: 1.0,
+            order: 1.0,
         }
     }
 
@@ -192,7 +192,7 @@ impl RealLocation {
         Self {
             position: RealPosition { x, y },
             size: RealSize { width, height },
-            z_index: self.z_index,
+            order: self.order,
         }
     }
 }
@@ -478,6 +478,34 @@ impl std::ops::Sub<RealSize> for SmallestSize {
 }
 
 
+/// Specifies which nodes should be drawn on top of other nodes.
+///
+/// The smallest order is `1.0`, nodes with a bigger order are drawn on top
+/// of nodes with a smaller order.
+///
+/// The default order is `Order::Above(1.0)` which means the node will
+/// display on top of all previous nodes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Order {
+    /// Ordering which is global to the entire scene.
+    Global(f32),
+
+    /// Ordering which is added to the parent's z-index.
+    Parent(f32),
+
+    /// Ordering which is added on top of all previous rendered nodes.
+    Above(f32),
+}
+
+impl Default for Order {
+    /// Returns [`Order::Above(1.0)`].
+    #[inline]
+    fn default() -> Self {
+        Self::Above(1.0)
+    }
+}
+
+
 pub use Length::{
     Zero,
     Px,
@@ -664,12 +692,12 @@ pub(crate) struct Location {
     /// Origin point for the Node relative to the parent.
     pub(crate) origin: Origin,
 
-    /// Z-index relative to parent.
-    pub(crate) z_index: f32,
+    /// Specifies which nodes should be on top of other nodes.
+    pub(crate) order: Order,
 }
 
 impl Location {
-    pub(crate) fn children_location(&self, parent: &RealLocation, smallest: &RealSize, screen: &ScreenSize) -> RealLocation {
+    pub(crate) fn children_location_explicit(&self, parent: &RealLocation, smallest: &RealSize, screen: &ScreenSize, max_order: f32) -> RealLocation {
         let size = self.size.real_size(&parent.size, smallest, screen);
         let offset = self.offset.real_position(&parent.size, smallest, screen);
         let padding = self.padding.real_padding(&parent.size, smallest, screen);
@@ -688,8 +716,17 @@ impl Location {
                 width: (size.width - padding.left - padding.right).max(0.0),
                 height: (size.height - padding.up - padding.down).max(0.0),
             },
-            z_index: parent.z_index + self.z_index,
+            order: match self.order {
+                Order::Global(order) => order,
+                Order::Parent(order) => parent.order + order,
+                Order::Above(order) => max_order + order,
+            },
         }
+    }
+
+    #[inline]
+    pub(crate) fn children_location<'a>(&self, parent: &RealLocation, smallest: &RealSize, info: &SceneLayoutInfo<'a>) -> RealLocation {
+        self.children_location_explicit(parent, smallest, &info.screen_size, info.renderer.get_max_order())
     }
 }
 
@@ -1048,7 +1085,7 @@ impl<'a> ScenePrerender<'a> {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable, Default)]
 pub(crate) struct SceneUniform {
-    pub(crate) max_z_index: f32,
+    pub(crate) max_order: f32,
     _padding1: f32,
     _padding2: f32,
     _padding3: f32,
@@ -1064,7 +1101,7 @@ impl SceneRenderer {
     #[inline]
     fn new(engine: &crate::EngineState) -> Self {
         let mut scene_uniform = Uniform::new(wgpu::ShaderStages::VERTEX, SceneUniform {
-            max_z_index: 1.0,
+            max_order: 1.0,
             _padding1: 0.0,
             _padding2: 0.0,
             _padding3: 0.0,
@@ -1078,12 +1115,12 @@ impl SceneRenderer {
     }
 
     #[inline]
-    pub(crate) fn get_max_z_index(&self) -> f32 {
-        self.scene_uniform.max_z_index
+    pub(crate) fn get_max_order(&self) -> f32 {
+        self.scene_uniform.max_order
     }
 
-    pub(crate) fn set_max_z_index(&mut self, z_index: f32) {
-        self.scene_uniform.max_z_index = self.scene_uniform.max_z_index.max(z_index);
+    pub(crate) fn set_max_order(&mut self, order: f32) {
+        self.scene_uniform.max_order = self.scene_uniform.max_order.max(order);
     }
 
     /// This is run before doing the layout of the children,
@@ -1091,7 +1128,7 @@ impl SceneRenderer {
     /// needs for the layout.
     #[inline]
     fn before_layout(&mut self) {
-        self.scene_uniform.max_z_index = 1.0;
+        self.scene_uniform.max_order = 1.0;
         self.sprite.before_layout();
         self.bitmap_text.before_layout();
     }
@@ -1101,7 +1138,6 @@ impl SceneRenderer {
     /// needs for the render.
     #[inline]
     fn before_render(&mut self) {
-        self.scene_uniform.max_z_index = 1.0;
         self.sprite.before_render();
         self.bitmap_text.before_render();
     }

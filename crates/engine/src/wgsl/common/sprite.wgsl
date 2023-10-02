@@ -1,7 +1,7 @@
 struct Sprite {
     @location(0) position: vec2<f32>,
     @location(1) size: vec2<f32>,
-    @location(2) z_index: f32,
+    @location(2) order: f32,
     @location(3) uv: vec2<f32>,
     @location(4) tile: vec4<u32>,
 };
@@ -44,8 +44,8 @@ fn sprite_clip_position(sprite: Sprite, vert_x: i32, vert_y: i32) -> vec4<f32> {
     let x = f32(vert_x) * sprite.size.x + sprite.position.x;
     let y = f32(vert_y) * sprite.size.y + sprite.position.y;
 
-    let z_index = sprite.z_index;
-    let max_z_index = scene.max_z_index;
+    let order = sprite.order;
+    let max_order = scene.max_order;
 
-    return vec4<f32>(x * max_z_index, y * max_z_index, z_index, max_z_index);
+    return vec4<f32>(x * max_order, y * max_order, order, max_order);
 }

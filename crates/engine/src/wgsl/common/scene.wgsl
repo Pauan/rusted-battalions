@@ -1,5 +1,5 @@
 struct Scene {
-    max_z_index: f32,
+    max_order: f32,
 
     // TODO figure out how to get rid of this padding
     _padding1: f32,

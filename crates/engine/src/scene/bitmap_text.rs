@@ -12,7 +12,7 @@ use crate::scene::builder::{Node, make_builder, base_methods, location_methods, 
 use crate::scene::sprite::{GPUSprite, Tile, SpritesheetPipeline, SCENE_SHADER, SPRITE_SHADER};
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Padding, SmallestLength,
-    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo,
+    RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, Order,
     Length, Percentage, Handles, Prerender, Texture, SceneUniform,
     ScenePrerender, RealSize, ScreenSize, SmallestSize, RealPosition,
 };
@@ -106,7 +106,6 @@ pub struct BitmapText {
     line_spacing: Length,
 
     // Internal state
-    z_index: f32,
     glyphs: Vec<Glyph>,
 }
 
@@ -124,7 +123,6 @@ impl BitmapText {
             text_color: ColorRgb::default(),
             line_spacing: Length::Zero,
 
-            z_index: 0.0,
             glyphs: vec![],
         }
     }
@@ -336,17 +334,17 @@ impl NodeLayout for BitmapText {
     }
 
     fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
+        let max_order = info.renderer.get_max_order();
+        
         let font = self.font.as_ref().expect("BitmapText is missing font");
 
         if let Some(font) = info.renderer.bitmap_text.fonts.get_mut(&font.handle) {
-            let this_location = self.location.children_location(parent, &smallest_size.real_size(), &info.screen_size);
+            let this_location = self.location.children_location_explicit(parent, &smallest_size.real_size(), &info.screen_size, max_order);
 
             // If it has a fixed size then we need to calculate the glyphs.
             self.calculate_glyphs(&this_location.size.smallest_size(), this_location.size.width, &info.screen_size);
 
             if !self.glyphs.is_empty() {
-                self.z_index = this_location.z_index;
-
                 for glyph in self.glyphs.iter_mut() {
                     let character = font.supported.replace(glyph.character);
 
@@ -356,7 +354,7 @@ impl NodeLayout for BitmapText {
                     let char_location = RealLocation {
                         position: this_location.position + glyph.position,
                         size: glyph.size,
-                        z_index: this_location.z_index,
+                        order: this_location.order,
                     };
 
                     glyph.gpu_sprite.update(&char_location);
@@ -369,7 +367,7 @@ impl NodeLayout for BitmapText {
                 }
 
                 info.rendered_nodes.push(handle.clone());
-                info.renderer.set_max_z_index(self.z_index);
+                info.renderer.set_max_order(this_location.order);
             }
         }
 
@@ -377,9 +375,7 @@ impl NodeLayout for BitmapText {
     }
 
     #[inline]
-    fn render<'a>(&mut self, info: &mut SceneRenderInfo<'a>) {
-        info.renderer.set_max_z_index(self.z_index);
-    }
+    fn render<'a>(&mut self, _info: &mut SceneRenderInfo<'a>) {}
 }
 
 

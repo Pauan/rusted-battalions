@@ -13,7 +13,7 @@ use crate::scene::builder::{Node, make_builder, base_methods, location_methods, 
 use crate::scene::{
     Handle, Handles, Texture, Location, Padding, Origin, Offset, Size, ScreenSize, SmallestSize,
     SceneLayoutInfo, SceneRenderInfo, RealLocation, NodeLayout,  NodeHandle, SceneUniform,
-    ScenePrerender, Prerender, Length, RealSize, ScreenLength,
+    ScenePrerender, Prerender, Length, RealSize, ScreenLength, Order,
 };
 
 
@@ -113,13 +113,17 @@ impl Tile {
 pub(crate) struct GPUSprite {
     pub(crate) position: [f32; 2],
     pub(crate) size: [f32; 2],
-    pub(crate) z_index: f32,
+    pub(crate) order: f32,
     pub(crate) uv: [f32; 2],
     pub(crate) tile: [u32; 4],
 }
 
 impl GPUSprite {
     pub(crate) fn update(&mut self, location: &RealLocation) {
+        if location.order < 1.0 {
+            panic!("Order cannot be lower than 1.0");
+        }
+
         let location = location.convert_to_wgpu_coordinates();
 
         self.position = [
@@ -132,7 +136,7 @@ impl GPUSprite {
         ];
 
         self.size = [location.size.width, location.size.height];
-        self.z_index = location.z_index;
+        self.order = location.order;
     }
 }
 
@@ -167,6 +171,7 @@ pub struct Sprite {
 
     parent_location: Option<RealLocation>,
     smallest_size: Option<RealSize>,
+    max_order: f32,
 
     gpu_index: usize,
     gpu_sprite: GPUSprite,
@@ -187,6 +192,7 @@ impl Sprite {
 
             parent_location: None,
             smallest_size: None,
+            max_order: 1.0,
 
             gpu_index: 0,
             gpu_sprite: GPUSprite::default(),
@@ -207,7 +213,7 @@ impl Sprite {
         let parent = self.parent_location.as_ref().unwrap();
         let smallest = self.smallest_size.as_ref().unwrap();
 
-        let location = self.location.children_location(parent, smallest, screen);
+        let location = self.location.children_location_explicit(parent, smallest, screen, self.max_order);
 
         self.gpu_sprite.uv = self.repeat_tile.to_uv(&location.size, &parent.size, smallest, screen);
 
@@ -294,10 +300,11 @@ impl NodeLayout for Sprite {
         self.location_changed = false;
         self.parent_location = Some(*parent);
         self.smallest_size = Some(smallest_size);
+        self.max_order = info.renderer.get_max_order();
 
         self.update_gpu(&info.screen_size);
 
-        info.renderer.set_max_z_index(self.gpu_sprite.z_index);
+        info.renderer.set_max_order(self.gpu_sprite.order);
 
         let spritesheet = self.spritesheet.as_ref().expect("Sprite is missing spritesheet");
 
@@ -340,8 +347,6 @@ impl NodeLayout for Sprite {
                 }
             }
         }
-
-        info.renderer.set_max_z_index(self.gpu_sprite.z_index);
     }
 }
 

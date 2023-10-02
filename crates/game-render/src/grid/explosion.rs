@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use futures_signals::signal::{Signal, Mutable};
 use rusted_battalions_engine as engine;
-use rusted_battalions_engine::{Node, Size, Offset, Tile, ParentWidth, ParentHeight};
+use rusted_battalions_engine::{Node, Size, Offset, Tile, ParentWidth, ParentHeight, Order};
 
 use crate::Game;
 use crate::grid::{Grid, Coord};
@@ -118,7 +118,7 @@ impl Explosion {
         engine::Sprite::builder()
             .spritesheet(game.spritesheets.effect.clone())
 
-            .z_index(grid.z_index(&this.coord) + 0.75)
+            .order(Order::Parent(grid.order(&this.coord) + 0.75))
 
             .offset({
                 let (x, y) = grid.tile_offset(&this.coord);

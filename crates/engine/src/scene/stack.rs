@@ -2,7 +2,7 @@ use futures_signals::signal::{Signal, SignalExt};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt};
 use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
-    NodeHandle, Location, Origin, Size, Offset, Padding, SmallestSize,
+    NodeHandle, Location, Origin, Size, Offset, Padding, SmallestSize, Order,
     RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
 };
 
@@ -96,17 +96,10 @@ impl NodeLayout for Stack {
     }
 
     fn update_layout<'a>(&mut self, _handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
-        let mut this_location = self.location.children_location(parent, &smallest_size.real_size(), &info.screen_size);
+        let this_location = self.location.children_location(parent, &smallest_size.real_size(), &info);
 
         for child in self.computed_children.iter() {
             let mut lock = child.handle.lock();
-
-            let max_z_index = info.renderer.get_max_z_index();
-
-            assert!(max_z_index >= this_location.z_index);
-
-            this_location.z_index = max_z_index;
-
             lock.update_layout(&child.handle, &this_location, &child.size, info);
         }
 
