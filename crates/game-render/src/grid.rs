@@ -26,6 +26,7 @@ const UNIT_ANIMATION_TIME: f64 = 250.0;
 const EXPLOSION_ANIMATION_TIME: f64 = 500.0;
 const BUILDING_ANIMATION_TIME: f64 = 500.0;
 const TERRAIN_ANIMATION_TIME: f64 = 500.0;
+const FOG_ANIMATION_TIME: f64 = 1000.0;
 
 
 fn lerp_f32(from: f32, to: f32, percent: f32) -> f32 {
@@ -149,6 +150,10 @@ impl Grid {
                 (time - state.start) / duration
             }
         }).stop_if(|value| *value == 1.0)
+    }
+
+    pub(crate) fn animation(&self, duration: f64) -> impl Signal<Item = f64> {
+        self.time.signal_ref(move |time| (time / duration))
     }
 
     /// When it reaches the end of the frames, it starts again from the beginning.

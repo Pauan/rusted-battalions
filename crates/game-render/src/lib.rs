@@ -553,7 +553,7 @@ impl Game {
                 grid.units.insert(megatank.clone());
             }));
 
-            grid.spawn_futures([(1.0, 2.0)].into_iter().map(|(x, y)| {
+            /*grid.spawn_futures([(1.0, 2.0)].into_iter().map(|(x, y)| {
                 clone!(grid => async move {
                     loop {
                         grid.wait(1_000.0).await;
@@ -671,7 +671,7 @@ impl Game {
                 })
             })).collect::<Vec<_>>();
 
-            grid.spawn_futures(futures);
+            grid.spawn_futures(futures);*/
         }
     }
 }

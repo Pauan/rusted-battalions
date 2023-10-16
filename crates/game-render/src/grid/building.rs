@@ -5,7 +5,7 @@ use rusted_battalions_engine as engine;
 use rusted_battalions_engine::{Node, Size, Offset, Tile, ParentWidth, ParentHeight, Order};
 
 use crate::Game;
-use crate::grid::{BUILDING_ANIMATION_TIME, Grid, Coord, Nation};
+use crate::grid::{BUILDING_ANIMATION_TIME, FOG_ANIMATION_TIME, Grid, Coord, Nation};
 
 
 #[derive(Debug, Clone, Copy)]
@@ -123,40 +123,74 @@ impl Building {
 
         let (x, y) = grid.tile_offset(&this.coord);
 
-        engine::Sprite::builder()
-            .spritesheet(game.spritesheets.building.clone())
+        let offset = Offset {
+            x: ParentWidth(x),
+            y: ParentHeight(y - grid.height),
+        };
 
-            .tile_signal(this.tile_x(grid).map(move |tile_x| {
-                Tile {
-                    start_x: tile_x,
+        let size = Size {
+            width: ParentWidth(grid.width),
+            height: ParentHeight(grid.height * 2.0),
+        };
+
+        engine::Stack::builder()
+            .order(Order::Parent(0.0))
+
+            .child(engine::Sprite::builder()
+                .spritesheet(game.spritesheets.building.clone())
+
+                .tile_signal(this.tile_x(grid).map(move |tile_x| {
+                    Tile {
+                        start_x: tile_x,
+                        start_y: tile_y,
+                        end_x: tile_x + Self::TILE_WIDTH,
+                        end_y: tile_y + Self::TILE_HEIGHT,
+                    }
+                }))
+
+                .palette_signal(this.nation.signal_ref(|nation| {
+                    match nation {
+                        None => 0,
+                        Some(Nation::OrangeStar) => 0,
+                        Some(Nation::BlueMoon) => 1,
+                        Some(Nation::GreenEarth) => 2,
+                        Some(Nation::YellowComet) => 3,
+                        Some(Nation::BlackHole) => 4,
+                    }
+                }))
+
+                .order(Order::Parent(grid.order(&this.coord) + (2.0 / 6.0)))
+                .offset(offset)
+                .size(size)
+                .build())
+
+            .child(engine::Sprite::builder()
+                .spritesheet(game.spritesheets.building.clone())
+
+                .tile(Tile {
+                    start_x: Self::TILE_WIDTH,
                     start_y: tile_y,
-                    end_x: tile_x + Self::TILE_WIDTH,
+                    end_x: Self::TILE_WIDTH + Self::TILE_WIDTH,
                     end_y: tile_y + Self::TILE_HEIGHT,
-                }
-            }))
+                })
 
-            .palette_signal(this.nation.signal_ref(|nation| {
-                match nation {
-                    None => 0,
-                    Some(Nation::OrangeStar) => 0,
-                    Some(Nation::BlueMoon) => 1,
-                    Some(Nation::GreenEarth) => 2,
-                    Some(Nation::YellowComet) => 3,
-                    Some(Nation::BlackHole) => 4,
-                }
-            }))
+                .palette(0)
 
-            .order(Order::Parent(grid.order(&this.coord) + 0.25))
+                .alpha_signal(grid.animation(FOG_ANIMATION_TIME).map(move |time| {
+                    let time = (time % 2.0) as f32;
 
-            .offset(Offset {
-                x: ParentWidth(x),
-                y: ParentHeight(y - grid.height),
-            })
+                    if time > 1.0 {
+                        2.0 - time
 
-            .size(Size {
-                width: ParentWidth(grid.width),
-                height: ParentHeight(grid.height * 2.0),
-            })
+                    } else {
+                        time
+                    }
+                }))
+
+                .order(Order::Parent(grid.order(&this.coord) + (3.0 / 6.0)))
+                .offset(offset)
+                .size(size)
+                .build())
 
             .build()
     }

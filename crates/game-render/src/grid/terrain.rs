@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use futures_signals::signal::SignalExt;
 use rusted_battalions_engine as engine;
-use rusted_battalions_engine::{Size, Offset, Tile, Node, ParentWidth, ParentHeight, Order};
+use rusted_battalions_engine::{SpriteBuilder, Size, Offset, Tile, Node, ParentWidth, ParentHeight, Order};
 
-use crate::grid::{Game, Grid, Coord, TERRAIN_ANIMATION_TIME};
+use crate::grid::{Game, Grid, Coord, TERRAIN_ANIMATION_TIME, FOG_ANIMATION_TIME};
 use crate::util::random::{random};
 
 mod ocean;
@@ -756,11 +756,19 @@ impl TerrainTile {
 
         let (x, y) = grid.tile_offset(&coord);
 
-        engine::Sprite::builder()
-            .spritesheet(game.spritesheets.terrain.clone())
+        let offset = Offset {
+            x: ParentWidth(x),
+            y: ParentHeight(y - (grid.height * (ratio - 1.0))),
+        };
 
-            .apply(|builder| {
-                let TileInfo { tile_x, tile_y, tile_width, tile_height, frame_info } = this.info;
+        let size = Size {
+            width: ParentWidth(grid.width),
+            height: ParentHeight(grid.height * ratio),
+        };
+
+        fn tile_animation(grid: &Arc<Grid>, info: TileInfo) -> impl FnOnce(SpriteBuilder) -> SpriteBuilder + '_ {
+            move |builder| {
+                let TileInfo { tile_x, tile_y, tile_width, tile_height, frame_info } = info;
 
                 let mut tile = Tile {
                     start_x: tile_x,
@@ -779,21 +787,40 @@ impl TerrainTile {
                 } else {
                     builder.tile(tile)
                 }
-            })
+            }
+        }
 
-            .order(Order::Parent(grid.order(&coord)))
+        engine::Stack::builder()
+            .order(Order::Parent(0.0))
 
-            .offset(Offset {
-                x: ParentWidth(x),
-                y: ParentHeight(y - (grid.height * (ratio - 1.0))),
-            })
+            .child(engine::Sprite::builder()
+                .spritesheet(game.spritesheets.terrain.clone())
+                .apply(tile_animation(grid, this.info))
+                .order(Order::Parent(grid.order(&coord)))
+                .offset(offset)
+                .size(size)
+                .palette(0)
+                .build())
 
-            .size(Size {
-                width: ParentWidth(grid.width),
-                height: ParentHeight(grid.height * ratio),
-            })
+            .child(engine::Sprite::builder()
+                .alpha_signal(grid.animation(FOG_ANIMATION_TIME).map(move |time| {
+                    let time = (time % 2.0) as f32;
 
-            .palette(0)
+                    if time > 1.0 {
+                        2.0 - time
+
+                    } else {
+                        time
+                    }
+                }))
+
+                .spritesheet(game.spritesheets.terrain.clone())
+                .apply(tile_animation(grid, this.info))
+                .order(Order::Parent(grid.order(&coord) + (1.0 / 6.0)))
+                .offset(offset)
+                .size(size)
+                .palette(1)
+                .build())
 
             .build()
     }

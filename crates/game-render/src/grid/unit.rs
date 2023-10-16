@@ -6,7 +6,7 @@ use rusted_battalions_engine as engine;
 use rusted_battalions_engine::{Node, Size, Offset, Tile, ParentWidth, ParentHeight, Order};
 
 use crate::Game;
-use crate::grid::{UNIT_ANIMATION_TIME, Grid, Coord, Nation};
+use crate::grid::{UNIT_ANIMATION_TIME, FOG_ANIMATION_TIME, Grid, Coord, Nation};
 use crate::grid::explosion::{ExplosionAnimation};
 
 
@@ -251,8 +251,19 @@ impl Unit {
             })
 
             .order_signal(this.coord.signal_ref(clone!(grid => move |coord| {
-                Order::Parent(grid.order(coord) + 0.50)
+                Order::Parent(grid.order(coord) + (4.0 / 6.0))
             })).dedupe())
+
+            .alpha_signal(grid.animation(FOG_ANIMATION_TIME).map(move |time| {
+                let time = (time % 2.0) as f32;
+
+                if time > 1.0 {
+                    1.0 - (2.0 - time)
+
+                } else {
+                    1.0 - time
+                }
+            }))
 
             .tile_signal(map_ref! {
                 let tile_x = this.tile_x(),

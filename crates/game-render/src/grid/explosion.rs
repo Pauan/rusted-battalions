@@ -147,7 +147,7 @@ impl Explosion {
                     ExplosionAnimation::Air => builder.order(Order::Above(1.0)),
 
                     // Other explosions follow the usual order, so they can be obscured by mountains / forests.
-                    _ => builder.order(Order::Parent(grid.order(&this.coord) + 0.75)),
+                    _ => builder.order(Order::Parent(grid.order(&this.coord) + (5.0 / 6.0))),
                 }
             })
 
