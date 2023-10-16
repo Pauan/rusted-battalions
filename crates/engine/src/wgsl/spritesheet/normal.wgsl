@@ -3,8 +3,9 @@
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-    @location(1) tile: vec4<u32>,
+    @location(0) @interpolate(flat) alpha: f32,
+    @location(1) uv: vec2<f32>,
+    @location(2) tile: vec4<u32>,
 };
 
 @vertex
@@ -17,6 +18,7 @@ fn vs_main(
 
     var out: VertexOutput;
     out.clip_position = sprite_clip_position(sprite, vert_x, vert_y);
+    out.alpha = sprite.alpha;
     out.uv = make_uv(sprite.uv, vert_x, vert_y);
     out.tile = sprite.tile;
     return out;
@@ -32,6 +34,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
 
     } else {
-        return vec4(color.rgb, 1.0);
+        return vec4(color.rgb, in.alpha);
     }
 }

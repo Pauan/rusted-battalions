@@ -1062,20 +1062,28 @@ impl<'a> Prerender<'a> {
 }
 
 pub(crate) struct ScenePrerender<'a> {
-    pub(crate) prerenders: Vec<Prerender<'a>>,
+    pub(crate) opaques: Vec<Prerender<'a>>,
+    pub(crate) alphas: Vec<Prerender<'a>>,
 }
 
 impl<'a> ScenePrerender<'a> {
     #[inline]
     fn new() -> Self {
-        Self { prerenders: vec![] }
+        Self {
+            opaques: vec![],
+            alphas: vec![],
+        }
     }
 
     /// Does the actual rendering, using the prepared data.
     /// The lifetimes are necessary in order to make it work with wgpu::RenderPass.
     #[inline]
     pub(crate) fn render<'b>(&'a mut self, render_pass: &mut wgpu::RenderPass<'b>) where 'a: 'b {
-        for prerender in self.prerenders.iter_mut() {
+        for prerender in self.opaques.iter_mut() {
+            prerender.render(render_pass);
+        }
+
+        for prerender in self.alphas.iter_mut() {
             prerender.render(render_pass);
         }
     }

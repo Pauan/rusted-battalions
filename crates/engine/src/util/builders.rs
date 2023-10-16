@@ -128,13 +128,15 @@ impl BindGroupLayout {
 pub(crate) struct Pipeline<'a, 'b, 'c> {
     label: Option<&'static str>,
     bind_groups: Option<&'a [&'a wgpu::BindGroupLayout]>,
-    shader: Option<wgpu::ShaderModuleDescriptor<'c>>,
+    shader: Option<&'c wgpu::ShaderModule>,
     vertex_buffers: Option<&'b [wgpu::VertexBufferLayout<'b>]>,
     topology: Option<wgpu::PrimitiveTopology>,
     strip_index_format: Option<wgpu::IndexFormat>,
     front_face: Option<wgpu::FrontFace>,
     cull_mode: Option<wgpu::Face>,
-    depth_stencil: Option<wgpu::StencilState>,
+    depth_write: bool,
+    stencil: Option<wgpu::StencilState>,
+    blend_state: Option<wgpu::BlendState>,
 }
 
 #[allow(unused)]
@@ -149,7 +151,9 @@ impl<'a, 'b, 'c> Pipeline<'a, 'b, 'c> {
             strip_index_format: None,
             front_face: None,
             cull_mode: None,
-            depth_stencil: None,
+            depth_write: true,
+            stencil: None,
+            blend_state: None,
         }
     }
 
@@ -166,7 +170,7 @@ impl<'a, 'b, 'c> Pipeline<'a, 'b, 'c> {
     }
 
     #[inline]
-    pub(crate) fn shader(mut self, shader: wgpu::ShaderModuleDescriptor<'c>) -> Self {
+    pub(crate) fn shader(mut self, shader: &'c wgpu::ShaderModule) -> Self {
         self.shader = Some(shader);
         self
     }
@@ -202,13 +206,25 @@ impl<'a, 'b, 'c> Pipeline<'a, 'b, 'c> {
     }
 
     #[inline]
-    pub(crate) fn depth_stencil(mut self, depth_stencil: wgpu::StencilState) -> Self {
-        self.depth_stencil = Some(depth_stencil);
+    pub(crate) fn depth_write(mut self, write: bool) -> Self {
+        self.depth_write = write;
+        self
+    }
+
+    #[inline]
+    pub(crate) fn stencil(mut self, stencil: wgpu::StencilState) -> Self {
+        self.stencil = Some(stencil);
+        self
+    }
+
+    #[inline]
+    pub(crate) fn blend_state(mut self, state: wgpu::BlendState) -> Self {
+        self.blend_state = Some(state);
         self
     }
 
     pub(crate) fn build(self, engine: &crate::EngineState) -> wgpu::RenderPipeline {
-        let shader = engine.device.create_shader_module(self.shader.expect("Pipeline: missing shader"));
+        let shader = self.shader.expect("Pipeline: missing shader");
 
         let render_pipeline_layout = engine.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: self.label.map(|label| format!("{} Pipeline Layout", label)).as_deref(),
@@ -220,16 +236,16 @@ impl<'a, 'b, 'c> Pipeline<'a, 'b, 'c> {
             label: self.label.map(|label| format!("{} Pipeline", label)).as_deref(),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: shader,
                 entry_point: "vs_main",
                 buffers: self.vertex_buffers.unwrap_or(&[]),
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: engine.config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(self.blend_state.unwrap_or_else(|| wgpu::BlendState::REPLACE)),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
@@ -242,7 +258,7 @@ impl<'a, 'b, 'c> Pipeline<'a, 'b, 'c> {
                 unclipped_depth: false,
                 conservative: false,
             },
-            depth_stencil: self.depth_stencil.map(|stencil| engine.depth_stencil_state(stencil)),
+            depth_stencil: Some(engine.depth_stencil_state(self.depth_write, self.stencil)),
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,

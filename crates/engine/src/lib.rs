@@ -141,13 +141,13 @@ impl EngineState {
         self.depth_buffer = EngineState::make_depth_buffer(&self.device, &self.config);
     }
 
-    pub(crate) fn depth_stencil_state(&self, stencil: wgpu::StencilState) -> wgpu::DepthStencilState {
+    pub(crate) fn depth_stencil_state(&self, depth_write: bool, stencil: Option<wgpu::StencilState>) -> wgpu::DepthStencilState {
         wgpu::DepthStencilState {
             format: self.depth_buffer.format(),
-            depth_write_enabled: true,
+            depth_write_enabled: depth_write,
             depth_compare: wgpu::CompareFunction::Greater,
             stencil: if self.depth_buffer.has_stencil() {
-                stencil
+                stencil.unwrap_or_else(|| wgpu::StencilState::default())
             } else {
                 wgpu::StencilState::default()
             },

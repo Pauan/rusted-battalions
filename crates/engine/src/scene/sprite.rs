@@ -9,11 +9,11 @@ use crate::util::buffer::{
     Uniform, TextureBuffer, InstanceVec, InstanceVecOptions,
     RgbaImage, IndexedImage,
 };
-use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method};
+use crate::scene::builder::{Node, BuilderChanged, make_builder, base_methods, location_methods, simple_method};
 use crate::scene::{
     Handle, Handles, Texture, Location, Padding, Origin, Offset, Size, ScreenSize, SmallestSize,
     SceneLayoutInfo, SceneRenderInfo, RealLocation, NodeLayout,  NodeHandle, SceneUniform,
-    ScenePrerender, Prerender, Length, RealSize, ScreenLength, Order,
+    ScenePrerender, Prerender, Length, RealSize, ScreenLength, Order, Percentage,
 };
 
 
@@ -108,14 +108,28 @@ impl Tile {
 
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, PartialEq)]
 #[layout(step_mode = Instance)]
 pub(crate) struct GPUSprite {
     pub(crate) position: [f32; 2],
     pub(crate) size: [f32; 2],
     pub(crate) order: f32,
+    pub(crate) alpha: f32,
     pub(crate) uv: [f32; 2],
     pub(crate) tile: [u32; 4],
+}
+
+impl Default for GPUSprite {
+    fn default() -> Self {
+        Self {
+            position: [0.0, 0.0],
+            size: [0.0, 0.0],
+            order: 1.0,
+            alpha: 1.0,
+            uv: [1.0, 1.0],
+            tile: [0, 0, 0, 0],
+        }
+    }
 }
 
 impl GPUSprite {
@@ -144,7 +158,7 @@ impl GPUSprite {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
 #[layout(step_mode = Instance)]
-#[layout(location = 5)]
+#[layout(location = 6)]
 pub(crate) struct GPUPalette {
     pub(crate) palette: u32,
 }
@@ -175,7 +189,7 @@ pub struct Sprite {
 
     gpu_index: usize,
     gpu_sprite: GPUSprite,
-    gpu_palette: GPUPalette,
+    gpu_palette: Option<GPUPalette>,
 }
 
 impl Sprite {
@@ -196,7 +210,7 @@ impl Sprite {
 
             gpu_index: 0,
             gpu_sprite: GPUSprite::default(),
-            gpu_palette: GPUPalette::default(),
+            gpu_palette: None,
         }
     }
 
@@ -224,19 +238,46 @@ impl Sprite {
 make_builder!(Sprite, SpriteBuilder);
 base_methods!(Sprite, SpriteBuilder);
 
-location_methods!(Sprite, SpriteBuilder, false, |state| {
+location_methods!(Sprite, SpriteBuilder, |state| {
     state.location_changed();
+    BuilderChanged::Render
 });
 
 impl SpriteBuilder {
     simple_method!(
+        /// Sets the alpha for the sprite.
+        ///
+        /// 1.0 means fully opaque, 0.0 means fully transparent.
+        alpha,
+        alpha_signal,
+        |state, value: Percentage| {
+            if state.gpu_sprite.alpha != value {
+                let old = state.gpu_sprite.alpha == 1.0 || state.gpu_sprite.alpha == 0.0;
+                let new = value == 1.0 || value == 0.0;
+
+                state.gpu_sprite.alpha = value;
+
+                if old || new {
+                    BuilderChanged::Layout
+
+                } else {
+                    state.render_changed();
+                    BuilderChanged::Render
+                }
+
+            } else {
+                BuilderChanged::None
+            }
+        },
+    );
+
+    simple_method!(
         /// Sets the [`Spritesheet`] which will be used for this sprite.
         spritesheet,
         spritesheet_signal,
-        true,
-        true,
         |state, value: Spritesheet| {
             state.spritesheet = Some(value);
+            BuilderChanged::Layout
         },
     );
 
@@ -244,8 +285,6 @@ impl SpriteBuilder {
         /// Sets the [`Tile`] which specifies which tile to display (in pixel coordinates).
         tile,
         tile_signal,
-        false,
-        true,
         |state, value: Tile| {
             state.gpu_sprite.tile = [
                 value.start_x,
@@ -255,6 +294,7 @@ impl SpriteBuilder {
             ];
 
             state.render_changed();
+            BuilderChanged::Render
         },
     );
 
@@ -262,11 +302,10 @@ impl SpriteBuilder {
         /// Sets the [`RepeatTile`] which specifies how to repeat the sprite tile.
         repeat_tile,
         repeat_tile_signal,
-        false,
-        true,
         |state, value: RepeatTile| {
             state.repeat_tile = value;
             state.location_changed();
+            BuilderChanged::Render
         },
     );
 
@@ -274,11 +313,13 @@ impl SpriteBuilder {
         /// Sets the palette for this sprite.
         palette,
         palette_signal,
-        false,
-        true,
         |state, value: u32| {
-            state.gpu_palette.palette = value;
+            state.gpu_palette = Some(GPUPalette {
+                palette: value,
+            });
+
             state.render_changed();
+            BuilderChanged::Render
         },
     );
 }
@@ -294,37 +335,33 @@ impl NodeLayout for Sprite {
     }
 
     fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
-        let smallest_size = smallest_size.real_size();
-
         self.render_changed = false;
         self.location_changed = false;
-        self.parent_location = Some(*parent);
-        self.smallest_size = Some(smallest_size);
-        self.max_order = info.renderer.get_max_order();
 
-        self.update_gpu(&info.screen_size);
+        if self.gpu_sprite.alpha != 0.0 {
+            let smallest_size = smallest_size.real_size();
 
-        info.renderer.set_max_order(self.gpu_sprite.order);
+            self.parent_location = Some(*parent);
+            self.smallest_size = Some(smallest_size);
+            self.max_order = info.renderer.get_max_order();
 
-        let spritesheet = self.spritesheet.as_ref().expect("Sprite is missing spritesheet");
+            self.update_gpu(&info.screen_size);
 
-        if let Some(spritesheet) = info.renderer.sprite.spritesheets.get_mut(&spritesheet.handle) {
-            self.gpu_index = spritesheet.sprites.len();
+            info.renderer.set_max_order(self.gpu_sprite.order);
 
-            spritesheet.sprites.push(self.gpu_sprite);
+            let spritesheet = self.spritesheet.as_ref().expect("Sprite is missing spritesheet");
 
-            match spritesheet.extra {
-                SpritesheetExtra::Normal => {},
-                SpritesheetExtra::Palette { ref mut palettes } => {
-                    palettes.push(self.gpu_palette);
-                },
+            if let Some(spritesheet) = info.renderer.sprite.spritesheets.get_mut(&spritesheet.handle) {
+                self.gpu_index = spritesheet.push(self.gpu_sprite, self.gpu_palette);
             }
-        }
 
-        info.rendered_nodes.push(handle.clone());
+            info.rendered_nodes.push(handle.clone());
+        }
     }
 
     fn render<'a>(&mut self, info: &mut SceneRenderInfo<'a>) {
+        assert_ne!(self.gpu_sprite.alpha, 0.0);
+
         if self.render_changed {
             self.render_changed = false;
 
@@ -337,14 +374,7 @@ impl NodeLayout for Sprite {
             let spritesheet = self.spritesheet.as_ref().expect("Sprite is missing spritesheet");
 
             if let Some(spritesheet) = info.renderer.sprite.spritesheets.get_mut(&spritesheet.handle) {
-                spritesheet.sprites[self.gpu_index] = self.gpu_sprite;
-
-                match spritesheet.extra {
-                    SpritesheetExtra::Normal => {},
-                    SpritesheetExtra::Palette { ref mut palettes } => {
-                        palettes[self.gpu_index] = self.gpu_palette;
-                    },
-                }
+                spritesheet.update(self.gpu_index, self.gpu_sprite, self.gpu_palette);
             }
         }
     }
@@ -353,7 +383,8 @@ impl NodeLayout for Sprite {
 
 pub(crate) struct SpritesheetPipeline {
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,
-    pub(crate) pipeline: wgpu::RenderPipeline,
+    pub(crate) opaque: wgpu::RenderPipeline,
+    pub(crate) alpha: wgpu::RenderPipeline,
 }
 
 impl SpritesheetPipeline {
@@ -364,17 +395,20 @@ impl SpritesheetPipeline {
         vertex_buffers: &[wgpu::VertexBufferLayout],
         bind_group_layout: wgpu::BindGroupLayout
     ) -> Self {
-        let stencil = wgpu::StencilFaceState {
+        /*let stencil = wgpu::StencilFaceState {
             compare: wgpu::CompareFunction::GreaterEqual,
             fail_op: wgpu::StencilOperation::Keep,
             depth_fail_op: wgpu::StencilOperation::Keep,
             pass_op: wgpu::StencilOperation::Replace,
-        };
+        };*/
 
-        let pipeline = builders::Pipeline::builder()
+        // TODO lazy load this ?
+        let shader = engine.device.create_shader_module(shader);
+
+        let opaque = builders::Pipeline::builder()
             .label("Sprite")
             // TODO lazy load this ?
-            .shader(shader)
+            .shader(&shader)
             .bind_groups(&[
                 scene_uniform_layout,
                 &bind_group_layout,
@@ -382,15 +416,29 @@ impl SpritesheetPipeline {
             .vertex_buffers(vertex_buffers)
             .topology(wgpu::PrimitiveTopology::TriangleStrip)
             .strip_index_format(wgpu::IndexFormat::Uint32)
-            .depth_stencil(wgpu::StencilState {
+            /*.stencil(wgpu::StencilState {
                 front: stencil,
                 back: stencil,
                 read_mask: 0xFF,
                 write_mask: 0xFF,
-            })
+            })*/
             .build(engine);
 
-        Self { bind_group_layout, pipeline }
+        let alpha = builders::Pipeline::builder()
+            .label("Sprite")
+            .shader(&shader)
+            .bind_groups(&[
+                scene_uniform_layout,
+                &bind_group_layout,
+            ])
+            .vertex_buffers(vertex_buffers)
+            .topology(wgpu::PrimitiveTopology::TriangleStrip)
+            .strip_index_format(wgpu::IndexFormat::Uint32)
+            .depth_write(false)
+            .blend_state(wgpu::BlendState::ALPHA_BLENDING)
+            .build(engine);
+
+        Self { bind_group_layout, opaque, alpha }
     }
 }
 
@@ -399,18 +447,150 @@ pub(crate) static SCENE_SHADER: &'static str = include_str!("../wgsl/common/scen
 pub(crate) static SPRITE_SHADER: &'static str = include_str!("../wgsl/common/sprite.wgsl");
 
 
-enum SpritesheetExtra {
-    Normal,
-    Palette {
-        palettes: InstanceVec<GPUPalette>,
-    },
+struct SpritesheetInstances {
+    sprites: InstanceVec<GPUSprite>,
+    palettes: Option<InstanceVec<GPUPalette>>,
 }
 
 struct SpritesheetState {
-    sprites: InstanceVec<GPUSprite>,
+    opaque: SpritesheetInstances,
+    alpha: SpritesheetInstances,
     bind_group: wgpu::BindGroup,
-    extra: SpritesheetExtra,
 }
+
+impl SpritesheetState {
+    fn instances(&mut self, sprite: &GPUSprite) -> &mut SpritesheetInstances {
+        if sprite.alpha == 1.0 {
+            &mut self.opaque
+
+        } else {
+            &mut self.alpha
+        }
+    }
+
+    fn push(&mut self, sprite: GPUSprite, palette: Option<GPUPalette>) -> usize {
+        let instances = self.instances(&sprite);
+
+        let len = instances.sprites.len();
+
+        instances.sprites.push(sprite);
+
+        match &mut instances.palettes {
+            Some(palettes) => {
+                palettes.push(palette.expect("Sprite is missing palette"));
+            },
+            None => {
+                assert!(palette.is_none(), "Spritesheet does not support palette")
+            },
+        }
+
+        return len;
+    }
+
+    fn update(&mut self, index: usize, sprite: GPUSprite, palette: Option<GPUPalette>) {
+        let instances = self.instances(&sprite);
+
+        instances.sprites[index] = sprite;
+
+        match &mut instances.palettes {
+            Some(palettes) => {
+                palettes[index] = palette.expect("Sprite is missing palette");
+            },
+            None => {
+                assert!(palette.is_none(), "Spritesheet does not support palette")
+            },
+        }
+    }
+
+    pub(crate) fn prerender<'a>(
+        &'a mut self,
+        engine: &crate::EngineState,
+        scene_uniform: &'a wgpu::BindGroup,
+        normal: &'a SpritesheetPipeline,
+        palette: &'a SpritesheetPipeline,
+    ) -> (Prerender<'a>, Prerender<'a>) {
+        let opaque = {
+            let instances = self.opaque.sprites.len() as u32;
+
+            if DEBUG {
+                log::warn!("Spritesheet opaque {}", instances);
+            }
+
+            let bind_groups = vec![
+                scene_uniform,
+                &self.bind_group,
+            ];
+
+            let pipeline = if self.opaque.palettes.is_some() {
+                &palette.opaque
+            } else {
+                &normal.opaque
+            };
+
+            let slices = vec![
+                self.opaque.sprites.update_buffer(engine, &InstanceVecOptions {
+                    label: Some("Sprite Instance Buffer"),
+                }),
+
+                self.opaque.palettes.as_mut().and_then(|palettes| {
+                    palettes.update_buffer(engine, &InstanceVecOptions {
+                        label: Some("Sprite Palettes Buffer"),
+                    })
+                }),
+            ];
+
+            Prerender {
+                vertices: 4,
+                instances,
+                pipeline,
+                bind_groups,
+                slices,
+            }
+        };
+
+        let alpha = {
+            let instances = self.alpha.sprites.len() as u32;
+
+            if DEBUG {
+                log::warn!("Spritesheet alpha {}", instances);
+            }
+
+            let bind_groups = vec![
+                scene_uniform,
+                &self.bind_group,
+            ];
+
+            let pipeline = if self.alpha.palettes.is_some() {
+                &palette.alpha
+            } else {
+                &normal.alpha
+            };
+
+            let slices = vec![
+                self.alpha.sprites.update_buffer(engine, &InstanceVecOptions {
+                    label: Some("Sprite Instance Buffer"),
+                }),
+
+                self.alpha.palettes.as_mut().and_then(|palettes| {
+                    palettes.update_buffer(engine, &InstanceVecOptions {
+                        label: Some("Sprite Palettes Buffer"),
+                    })
+                }),
+            ];
+
+            Prerender {
+                vertices: 4,
+                instances,
+                pipeline,
+                bind_groups,
+                slices,
+            }
+        };
+
+        (opaque, alpha)
+    }
+}
+
 
 pub(crate) struct SpriteRenderer {
     normal: SpritesheetPipeline,
@@ -472,17 +652,23 @@ impl SpriteRenderer {
     }
 
     fn new_spritesheet(&mut self, engine: &crate::EngineState, handle: &Handle, texture: &TextureBuffer, palette: Option<&TextureBuffer>) {
-        let sprites = InstanceVec::new();
+        let opaque = SpritesheetInstances {
+            sprites: InstanceVec::new(),
+            palettes: palette.map(|_| InstanceVec::new()),
+        };
+
+        let alpha = SpritesheetInstances {
+            sprites: InstanceVec::new(),
+            palettes: palette.map(|_| InstanceVec::new()),
+        };
 
         let state = if let Some(palette) = palette {
             assert_eq!(texture.texture.format(), IndexedImage::FORMAT, "texture must be an IndexedImage");
             assert_eq!(palette.texture.format(), RgbaImage::FORMAT, "palette must be an RgbaImage");
 
             SpritesheetState {
-                sprites,
-                extra: SpritesheetExtra::Palette {
-                    palettes: InstanceVec::new(),
-                },
+                opaque,
+                alpha,
                 bind_group: builders::BindGroup::builder()
                     .label("Spritesheet")
                     .layout(&self.palette.bind_group_layout)
@@ -495,8 +681,8 @@ impl SpriteRenderer {
             assert_eq!(texture.texture.format(), RgbaImage::FORMAT, "texture must be an RgbaImage");
 
             SpritesheetState {
-                sprites,
-                extra: SpritesheetExtra::Normal,
+                opaque,
+                alpha,
                 bind_group: builders::BindGroup::builder()
                     .label("Spritesheet")
                     .layout(&self.normal.bind_group_layout)
@@ -515,13 +701,16 @@ impl SpriteRenderer {
     #[inline]
     pub(crate) fn before_layout(&mut self) {
         for (_, sheet) in self.spritesheets.iter_mut() {
-            sheet.sprites.clear();
+            sheet.opaque.sprites.clear();
 
-            match sheet.extra {
-                SpritesheetExtra::Normal => {},
-                SpritesheetExtra::Palette { ref mut palettes } => {
-                    palettes.clear();
-                },
+            if let Some(palettes) = &mut sheet.opaque.palettes {
+                palettes.clear();
+            }
+
+            sheet.alpha.sprites.clear();
+
+            if let Some(palettes) = &mut sheet.alpha.palettes {
+                palettes.clear();
             }
         }
     }
@@ -536,47 +725,14 @@ impl SpriteRenderer {
         scene_uniform: &'a wgpu::BindGroup,
         prerender: &mut ScenePrerender<'a>,
     ) {
-        prerender.prerenders.reserve(self.spritesheets.len());
+        prerender.opaques.reserve(self.spritesheets.len());
+        prerender.alphas.reserve(self.spritesheets.len());
 
         for (_, sheet) in self.spritesheets.iter_mut() {
-            let instances = sheet.sprites.len() as u32;
+            let (opaque, alpha) = sheet.prerender(engine, scene_uniform, &self.normal, &self.palette);
 
-            if DEBUG {
-                log::warn!("Spritesheet {}", instances);
-            }
-
-            let bind_groups = vec![
-                scene_uniform,
-                &sheet.bind_group,
-            ];
-
-            let pipeline = match sheet.extra {
-                SpritesheetExtra::Normal => &self.normal.pipeline,
-                SpritesheetExtra::Palette { .. } => &self.palette.pipeline,
-            };
-
-            let slices = vec![
-                sheet.sprites.update_buffer(engine, &InstanceVecOptions {
-                    label: Some("Sprite Instance Buffer"),
-                }),
-
-                match sheet.extra {
-                    SpritesheetExtra::Normal => None,
-                    SpritesheetExtra::Palette { ref mut palettes } => {
-                        palettes.update_buffer(engine, &InstanceVecOptions {
-                            label: Some("Sprite Palettes Buffer"),
-                        })
-                    },
-                }
-            ];
-
-            prerender.prerenders.push(Prerender {
-                vertices: 4,
-                instances,
-                pipeline,
-                bind_groups,
-                slices,
-            });
+            prerender.opaques.push(opaque);
+            prerender.alphas.push(alpha);
         }
     }
 }

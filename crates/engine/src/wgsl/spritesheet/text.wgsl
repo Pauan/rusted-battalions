@@ -2,7 +2,7 @@
 
 
 struct Text {
-    @location(5) color: vec3<f32>,
+    @location(6) color: vec3<f32>,
 };
 
 struct VertexOutput {

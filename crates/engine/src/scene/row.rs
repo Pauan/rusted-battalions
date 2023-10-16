@@ -1,6 +1,6 @@
 use futures_signals::signal::{Signal, SignalExt};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt};
-use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
+use crate::scene::builder::{Node, BuilderChanged, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Percentage, Padding, SmallestSize,
     SmallestLength, RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize,
@@ -112,7 +112,7 @@ impl Row {
 
 make_builder!(Row, RowBuilder);
 base_methods!(Row, RowBuilder);
-location_methods!(Row, RowBuilder, true);
+location_methods!(Row, RowBuilder);
 children_methods!(Row, RowBuilder);
 
 impl NodeLayout for Row {

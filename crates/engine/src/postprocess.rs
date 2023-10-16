@@ -94,13 +94,15 @@ impl Postprocess {
             //.texture(wgpu::ShaderStages::FRAGMENT, wgpu::TextureSampleType::Uint)
             .build(engine);
 
+        let shader = engine.device.create_shader_module(wgsl![
+            "postprocess.wgsl",
+            include_str!("postprocess.wgsl"),
+        ]);
+
         let render_pipeline = builders::Pipeline::builder()
             .label("Postprocess")
             // TODO lazy load this ?
-            .shader(wgsl![
-                "postprocess.wgsl",
-                include_str!("postprocess.wgsl"),
-            ])
+            .shader(&shader)
             .bind_groups(&[&bind_group_layout])
             .topology(wgpu::PrimitiveTopology::TriangleStrip)
             .strip_index_format(wgpu::IndexFormat::Uint32)

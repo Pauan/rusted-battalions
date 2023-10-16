@@ -2,8 +2,9 @@ struct Sprite {
     @location(0) position: vec2<f32>,
     @location(1) size: vec2<f32>,
     @location(2) order: f32,
-    @location(3) uv: vec2<f32>,
-    @location(4) tile: vec4<u32>,
+    @location(3) alpha: f32,
+    @location(4) uv: vec2<f32>,
+    @location(5) tile: vec4<u32>,
 };
 
 

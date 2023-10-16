@@ -1,6 +1,6 @@
 use futures_signals::signal::{Signal, SignalExt};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt};
-use crate::scene::builder::{Node, make_builder, base_methods, location_methods, children_methods};
+use crate::scene::builder::{Node, BuilderChanged, make_builder, base_methods, location_methods, children_methods};
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Padding, SmallestSize, SmallestLength,
     RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, RealSize, Order,
@@ -109,7 +109,7 @@ impl Wrap {
 
 make_builder!(Wrap, WrapBuilder);
 base_methods!(Wrap, WrapBuilder);
-location_methods!(Wrap, WrapBuilder, true);
+location_methods!(Wrap, WrapBuilder);
 children_methods!(Wrap, WrapBuilder);
 
 impl NodeLayout for Wrap {

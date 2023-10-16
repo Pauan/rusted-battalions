@@ -1,5 +1,5 @@
 use futures_signals::signal::{Signal, SignalExt};
-use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method};
+use crate::scene::builder::{Node, BuilderChanged, make_builder, base_methods, location_methods, simple_method};
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Padding, Length, SmallestSize,
     RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize,
@@ -137,7 +137,7 @@ impl BorderGrid {
 
 make_builder!(BorderGrid, BorderGridBuilder);
 base_methods!(BorderGrid, BorderGridBuilder);
-location_methods!(BorderGrid, BorderGridBuilder, true);
+location_methods!(BorderGrid, BorderGridBuilder);
 
 impl BorderGridBuilder {
     /// Sets the [`Quadrants`] for the border grid.
@@ -160,10 +160,9 @@ impl BorderGridBuilder {
         /// Sets the [`BorderSize`] for the border grid.
         border_size,
         border_size_signal,
-        true,
-        true,
         |state, border_size: BorderSize| {
             state.border_size = Some(border_size);
+            BuilderChanged::Layout
         },
     );
 }

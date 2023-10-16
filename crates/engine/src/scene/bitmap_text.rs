@@ -8,7 +8,7 @@ use crate::util::unicode;
 use crate::util::macros::wgsl;
 use crate::util::buffer::{Uniform, InstanceVec, InstanceVecOptions, GrayscaleImage, TextureBuffer};
 use crate::util::builders;
-use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method};
+use crate::scene::builder::{Node, BuilderChanged, make_builder, base_methods, location_methods, simple_method};
 use crate::scene::sprite::{GPUSprite, Tile, SpritesheetPipeline, SCENE_SHADER, SPRITE_SHADER};
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Padding, SmallestLength,
@@ -62,7 +62,7 @@ impl CharSize {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable, VertexLayout, Default, PartialEq)]
 #[layout(step_mode = Instance)]
-#[layout(location = 5)]
+#[layout(location = 6)]
 pub(crate) struct GPUChar {
     pub(crate) color: [f32; 3],
 }
@@ -234,17 +234,16 @@ impl BitmapText {
 
 make_builder!(BitmapText, BitmapTextBuilder);
 base_methods!(BitmapText, BitmapTextBuilder);
-location_methods!(BitmapText, BitmapTextBuilder, true);
+location_methods!(BitmapText, BitmapTextBuilder);
 
 impl BitmapTextBuilder {
     simple_method!(
         /// Sets the [`BitmapFont`] which will be used for this text.
         font,
         font_signal,
-        true,
-        true,
         |state, value: BitmapFont| {
             state.font = Some(value);
+            BuilderChanged::Layout
         },
     );
 
@@ -252,10 +251,9 @@ impl BitmapTextBuilder {
         /// Sets the [`CharSize`] which specifies the width / height of each character.
         char_size,
         char_size_signal,
-        true,
-        true,
         |state, value: CharSize| {
             state.char_size = Some(value);
+            BuilderChanged::Layout
         },
     );
 
@@ -265,10 +263,9 @@ impl BitmapTextBuilder {
         /// Defaults to "".
         text,
         text_signal,
-        true,
-        true,
         |state, value: Cow<'static, str>| {
             state.text = value;
+            BuilderChanged::Layout
         },
     );
 
@@ -278,11 +275,10 @@ impl BitmapTextBuilder {
         /// Defaults to `{ r: 0.0, g: 0.0, b: 0.0 }` (black).
         text_color,
         text_color_signal,
-        true,
-        // TODO it should update the text color without needing to relayout
-        true,
         |state, value: ColorRgb| {
             state.text_color = value;
+            // TODO it should update the text color without needing to relayout
+            BuilderChanged::Layout
         },
     );
 
@@ -302,10 +298,9 @@ impl BitmapTextBuilder {
         /// * [`Length::SmallestHeight`]: it is an error to use `SmallestHeight`.
         line_spacing,
         line_spacing_signal,
-        true,
-        true,
         |state, value: Length| {
             state.line_spacing = value;
+            BuilderChanged::Layout
         },
     );
 }
@@ -335,7 +330,7 @@ impl NodeLayout for BitmapText {
 
     fn update_layout<'a>(&mut self, handle: &NodeHandle, parent: &RealLocation, smallest_size: &SmallestSize, info: &mut SceneLayoutInfo<'a>) {
         let max_order = info.renderer.get_max_order();
-        
+
         let font = self.font.as_ref().expect("BitmapText is missing font");
 
         if let Some(font) = info.renderer.bitmap_text.fonts.get_mut(&font.handle) {
@@ -490,7 +485,7 @@ impl BitmapTextRenderer {
         scene_uniform: &'a wgpu::BindGroup,
         prerender: &mut ScenePrerender<'a>,
     ) {
-        prerender.prerenders.reserve(self.fonts.len());
+        prerender.opaques.reserve(self.fonts.len());
 
         for (_, font) in self.fonts.iter_mut() {
             let instances = font.sprites.len() as u32;
@@ -504,7 +499,7 @@ impl BitmapTextRenderer {
                 &font.bind_group,
             ];
 
-            let pipeline = &self.pipeline.pipeline;
+            let pipeline = &self.pipeline.opaque;
 
             let slices = vec![
                 font.sprites.update_buffer(engine, &InstanceVecOptions {
@@ -516,7 +511,7 @@ impl BitmapTextRenderer {
                 }),
             ];
 
-            prerender.prerenders.push(Prerender {
+            prerender.opaques.push(Prerender {
                 vertices: 4,
                 instances,
                 pipeline,

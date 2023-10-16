@@ -1,6 +1,6 @@
 use futures_signals::signal::{Signal, SignalExt};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt};
-use crate::scene::builder::{Node, make_builder, base_methods, location_methods, simple_method, children_methods};
+use crate::scene::builder::{Node, BuilderChanged, make_builder, base_methods, location_methods, simple_method, children_methods};
 use crate::scene::{
     NodeHandle, Location, Origin, Size, Offset, Padding, Length, SmallestSize, SmallestLength,
     RealLocation, NodeLayout, SceneLayoutInfo, SceneRenderInfo, ScreenSize, RealSize, Order,
@@ -112,7 +112,7 @@ impl Grid {
         }
 
         self.computed_grid_size = grid_size;
-        
+
         RealSize {
             width: columns * grid_size.width,
             height: rows * grid_size.height,
@@ -122,7 +122,7 @@ impl Grid {
 
 make_builder!(Grid, GridBuilder);
 base_methods!(Grid, GridBuilder);
-location_methods!(Grid, GridBuilder, true);
+location_methods!(Grid, GridBuilder);
 children_methods!(Grid, GridBuilder);
 
 impl GridBuilder {
@@ -130,10 +130,9 @@ impl GridBuilder {
         /// Sets the [`GridSize`] for the grid.
         grid_size,
         grid_size_signal,
-        true,
-        true,
         |state, grid_size: GridSize| {
             state.grid_size = Some(grid_size);
+            BuilderChanged::Layout
         },
     );
 }

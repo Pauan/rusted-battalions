@@ -27,6 +27,7 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+Pipeseam = 1%
 ```
 
 ## Mech
@@ -56,6 +57,37 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+Pipeseam = 15%
+```
+
+## Mech (out of ammo)
+```
+Infantry = 65%
+Mech = 55%
+Recon = 18%
+Tank = 6%
+Md Tank = 1%
+Neotank = 1%
+Megatank = 1%
+APC = 20%
+Artillery = 32%
+Rockets = 35%
+Anti-Air = 6%
+Missiles = 35%
+Piperunner = 6%
+Fighter = 0%
+Bomber = 0%
+B Copter = 9%
+T Copter = 35%
+Stealth = 0%
+Black Bomb = 0%
+Battleship = 0%
+Cruiser = 0%
+Lander = 0%
+Sub = 0%
+Black Boat = 0%
+Carrier = 0%
+Pipeseam = 1%
 ```
 
 ## Recon
@@ -85,6 +117,7 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+Pipeseam = 1%
 ```
 
 ## Tank
@@ -114,6 +147,37 @@ Lander = 10%
 Sub = 1%
 Black Boat = 10%
 Carrier = 1%
+Pipeseam = 15%
+```
+
+## Tank (out of ammo)
+```
+Infantry = 75%
+Mech = 70%
+Recon = 40%
+Tank = 6%
+Md Tank = 1%
+Neotank = 1%
+Megatank = 1%
+APC = 45%
+Artillery = 45%
+Rockets = 55%
+Anti-Air = 5%
+Missiles = 30%
+Piperunner = 6%
+Fighter = 0%
+Bomber = 0%
+B Copter = 10%
+T Copter = 40%
+Stealth = 0%
+Black Bomb = 0%
+Battleship = 0%
+Cruiser = 0%
+Lander = 0%
+Sub = 0%
+Black Boat = 0%
+Carrier = 0%
+Pipeseam = 1%
 ```
 
 ## Md Tank
@@ -143,6 +207,7 @@ Lander = 35%
 Sub = 10%
 Black Boat = 35%
 Carrier = 10%
+Pipeseam = 55%
 ```
 
 ## Neotank
@@ -172,6 +237,7 @@ Lander = 40%
 Sub = 15%
 Black Boat = 40%
 Carrier = 15%
+Pipeseam = 75%
 ```
 
 ## Megatank
@@ -201,6 +267,7 @@ Lander = 75%
 Sub = 45%
 Black Boat = 105%
 Carrier = 45%
+Pipeseam = 125%
 ```
 
 ## Artillery
@@ -230,6 +297,7 @@ Lander = 55%
 Sub = 60%
 Black Boat = 55%
 Carrier = 45%
+Pipeseam = 45%
 ```
 
 ## Rockets
@@ -259,6 +327,7 @@ Lander = 60%
 Sub = 85%
 Black Boat = 60%
 Carrier = 60%
+Pipeseam = 55%
 ```
 
 ## Anti-Air
@@ -288,6 +357,7 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+Pipeseam = 10%
 ```
 
 ## Missiles
@@ -317,6 +387,7 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+Pipeseam = 0%
 ```
 
 ## Piperunner
@@ -346,6 +417,7 @@ Lander = 60%
 Sub = 85%
 Black Boat = 60%
 Carrier = 60%
+Pipeseam = 55%
 ```
 
 ## Fighter
@@ -375,6 +447,7 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+Pipeseam = 0%
 ```
 
 ## Bomber
@@ -404,6 +477,7 @@ Lander = 95%
 Sub = 95%
 Black Boat = 95%
 Carrier = 75%
+Pipeseam = 95%
 ```
 
 ## B Copter
@@ -433,6 +507,7 @@ Lander = 25%
 Sub = 25%
 Black Boat = 25%
 Carrier = 25%
+Pipeseam = 25%
 ```
 
 ## Stealth
@@ -462,6 +537,7 @@ Lander = 65%
 Sub = 55%
 Black Boat = 65%
 Carrier = 45%
+Pipeseam = 70%
 ```
 
 ## Battleship
@@ -491,6 +567,7 @@ Lander = 95%
 Sub = 95%
 Black Boat = 95%
 Carrier = 60%
+Pipeseam = 55%
 ```
 
 ## Cruiser
@@ -520,6 +597,7 @@ Lander = 25%
 Sub = 90%
 Black Boat = 25%
 Carrier = 5%
+Pipeseam = 0%
 ```
 
 ## Sub
@@ -549,6 +627,7 @@ Lander = 95%
 Sub = 55%
 Black Boat = 95%
 Carrier = 75%
+Pipeseam = 0%
 ```
 
 ## Carrier
@@ -578,4 +657,5 @@ Lander = 0%
 Sub = 0%
 Black Boat = 0%
 Carrier = 0%
+Pipeseam = 0%
 ```

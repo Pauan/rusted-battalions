@@ -951,6 +951,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusted-battalions-game-logic"
+version = "0.1.0"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "rusted-battalions-game-render"
 version = "0.1.0"
 dependencies = [

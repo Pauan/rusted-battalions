@@ -6,6 +6,27 @@ use crate::util::{Arc, Lock};
 use crate::scene::{SceneChanged, NodeHandle, SmallestSize, NodeLayout, RealLocation, SceneLayoutInfo, SceneRenderInfo};
 
 
+pub(crate) enum BuilderChanged {
+    None,
+    Layout,
+    Render,
+}
+
+impl BuilderChanged {
+    pub(crate) fn trigger(&self, root: &Arc<SceneChanged>) {
+        match self {
+            Self::None => {},
+            Self::Layout => {
+                root.trigger_layout_change();
+            },
+            Self::Render => {
+                root.trigger_render_change();
+            },
+        }
+    }
+}
+
+
 pub(crate) struct Callbacks {
     after_inserted: Vec<Box<dyn FnOnce(Arc<SceneChanged>)>>,
     after_removed: Vec<Box<dyn FnOnce()>>,
@@ -268,8 +289,6 @@ macro_rules! simple_method {
         $(#[$attr:meta])*
         $name:ident,
         $signal_name:ident,
-        $trigger_relayout:literal,
-        $trigger_render:literal,
         |$state:ident, $value:ident: $type:ty| $set:block,
     ) => {
         $(#[$attr])*
@@ -280,7 +299,7 @@ macro_rules! simple_method {
 
                 let $state = &mut *state;
                 let $value = value;
-                $set
+                let _ = $set;
             }
 
             self
@@ -296,19 +315,14 @@ macro_rules! simple_method {
                 signal.for_each(move |value| {
                     let mut state = state.lock();
 
-                    {
+                    let changed = {
                         let $state = &mut *state;
                         let $value = value;
                         $set
-                    }
+                    };
 
                     if state.visible {
-                        if $trigger_relayout {
-                            root.trigger_layout_change()
-
-                        } else if $trigger_render {
-                            root.trigger_render_change()
-                        }
+                        changed.trigger(&root);
                     }
 
                     async {}
@@ -339,9 +353,10 @@ macro_rules! base_methods {
                 /// The default is `true`, which means it is visible.
                 visible,
                 visible_signal,
-                true,
-                true,
-                |state, value: bool| { state.visible = value; },
+                |state, value: bool| {
+                    state.visible = value;
+                    BuilderChanged::Layout
+                },
             );
         }
     };
@@ -351,10 +366,12 @@ pub(crate) use base_methods;
 
 
 macro_rules! location_methods {
-    ($name:ident, $builder_name:ident, $trigger_relayout:literal) => {
-        $crate::scene::builder::location_methods!($name, $builder_name, $trigger_relayout, |_state| {});
+    ($name:ident, $builder_name:ident) => {
+        $crate::scene::builder::location_methods!($name, $builder_name, |_state| {
+            BuilderChanged::Layout
+        });
     };
-    ($name:ident, $builder_name:ident, $trigger_relayout:literal, |$var:ident| $body:block) => {
+    ($name:ident, $builder_name:ident, |$var:ident| $body:block) => {
         impl $builder_name {
             $crate::scene::builder::simple_method!(
                 /// Offset x / y which is added to the parent's x / y.
@@ -362,8 +379,6 @@ macro_rules! location_methods {
                 /// The default is `{ x: Length::Zero, y: Length::Zero }` which means no offset.
                 offset,
                 offset_signal,
-                $trigger_relayout,
-                true,
                 |state, value: Offset| {
                     state.location.offset = value;
 
@@ -379,10 +394,9 @@ macro_rules! location_methods {
                 /// which means it's the same size as the parent space.
                 size,
                 size_signal,
-                true,
-                true,
                 |state, value: Size| {
                     state.location.size = value;
+                    BuilderChanged::Layout
                 },
             );
 
@@ -395,8 +409,6 @@ macro_rules! location_methods {
                 /// The default is no padding.
                 padding,
                 padding_signal,
-                $trigger_relayout,
-                true,
                 |state, value: Padding| {
                     state.location.padding = value;
 
@@ -417,8 +429,6 @@ macro_rules! location_methods {
                 /// And `{ x: 0.5, y: 0.5 }` will place it in the center of the parent space.
                 origin,
                 origin_signal,
-                $trigger_relayout,
-                true,
                 |state, value: Origin| {
                     state.location.origin = value;
 
@@ -435,13 +445,13 @@ macro_rules! location_methods {
                 /// The default is `Order::Above(1.0)` which means the node will display on top of all previous nodes.
                 order,
                 order_signal,
-                true,
-                true,
                 |state, value: Order| {
                     state.location.order = value;
 
                     let $var = state;
-                    $body
+                    let _ = $body;
+
+                    BuilderChanged::Layout
                 },
             );
         }
