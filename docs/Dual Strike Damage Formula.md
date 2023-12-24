@@ -19,10 +19,10 @@ struct Attacker {
     // Number of comtowers
     comtowers: f64,
 
-    // Defaults to 9%
+    // Defaults to 9 damage
     good_luck: f64,
 
-    // Defaults to 0%
+    // Defaults to 0 damage
     bad_luck: f64,
 }
 
@@ -37,17 +37,22 @@ impl Attacker {
         }
     }
 
+    // Returns a number from 0.0 to 100.0, which is the amount of HP
+    // reduced from the defending unit
     fn damage(&self) -> f64 {
         // 10% attack bonus per comtower
         let bonus_damage = self.co_bonus() + (self.comtowers * 0.1);
 
         // Minimum 1% damage
-        let attack_damage = (self.base_damage * bonus_damage).min(0.01);
+        let attack_damage = (self.base_damage * bonus_damage).min(1.0);
 
         let luck = random(0.0, self.good_luck) - random(0.0, self.bad_luck);
 
         // Attack damage and luck are scaled by the unit's HP
-        self.hp.ceil() * (attack_damage + luck)
+        let total_damage = self.hp.ceil() * (attack_damage + luck);
+
+        // Damage cannot go below 0.0
+        total_damage.max(0.0)
     }
 }
 
@@ -69,6 +74,7 @@ struct Defender {
 }
 
 impl Defender {
+    // Returns a percentage
     fn defense(&self) -> f64 {
         // 10% defense bonus per terrain star, but scaled by HP.
         // Terrain bonus is doubled during Lash's SCOP but it still scales with HP.
@@ -84,7 +90,9 @@ impl Defender {
 }
 
 
+// Returns a number from 0.0 to 100.0
 fn calculate_damage(attacker: &Attacker, defender: &Defender) -> f64 {
+    // Damage is truncated to the nearest integer
     (attacker.damage() * defender.defense()).trunc()
 }
 ```
