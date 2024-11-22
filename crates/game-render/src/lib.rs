@@ -4,7 +4,6 @@ mod ui;
 
 use std::sync::{Arc};
 
-use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle};
 use futures_signals::signal::{Mutable, Signal, SignalExt};
 use dominator::clone;
 use futures::future::join;
@@ -216,8 +215,8 @@ impl Game {
             .build()
     }
 
-    pub async fn start_engine<Window>(self: &Arc<Self>, window: Window) -> GameEngine<Window>
-        where Window: HasRawWindowHandle + HasRawDisplayHandle {
+    pub async fn start_engine<Window>(self: &Arc<Self>, window: Window) -> GameEngine
+        where Window: engine::WindowHandle + 'static {
 
         let screen_size = self.grid.lock_ref().screen_size;
 
@@ -717,12 +716,12 @@ impl Game {
 }
 
 
-pub struct GameEngine<Window> {
+pub struct GameEngine {
     game: Arc<Game>,
-    engine: Engine<Window>,
+    engine: Engine,
 }
 
-impl<Window> GameEngine<Window> where Window: HasRawWindowHandle + HasRawDisplayHandle {
+impl GameEngine {
     pub fn render(&mut self, time: f64) {
         {
             let grid = self.game.grid.lock_ref();

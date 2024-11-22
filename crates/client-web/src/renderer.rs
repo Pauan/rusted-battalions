@@ -1,3 +1,4 @@
+use rusted_battalions_engine::backend::web::Window;
 use rusted_battalions_game_render::{Game, GameSettings, Grid, UnitAppearance};
 
 use dominator::{Dom, DomBuilder, clone, html, dom_builder, with_node, apply_methods, events};
@@ -6,8 +7,6 @@ use futures_signals::signal::{Mutable, SignalExt};
 
 use std::sync::Arc;
 use std::future::Future;
-
-use crate::window::Window;
 
 
 // TODO this is a general utility helper, move it someplace else
@@ -64,7 +63,9 @@ impl Renderer {
         let window = Window::new();
 
         html!("div", {
-            .child(dom_builder!(window.canvas(), {
+            .child(html!("canvas" => web_sys::HtmlCanvasElement, {
+                .attr("data-raw-handle", &window.id().to_string())
+
                 .attr_signal("width", this.game.screen_size().map(|size| format!("{}", size.width)))
                 .attr_signal("height", this.game.screen_size().map(|size| format!("{}", size.height)))
 

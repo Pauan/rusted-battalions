@@ -4,15 +4,17 @@ use wgpu;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle};
 use postprocess::Postprocess;
 
 mod util;
 mod postprocess;
 mod scene;
+pub mod backend;
 
 pub use util::buffer::{RgbaImage, IndexedImage, GrayscaleImage};
 pub use scene::*;
+
+pub use wgpu::WindowHandle;
 
 
 const HAS_STENCIL: bool = false;
@@ -38,7 +40,7 @@ impl<S> Spawner for Arc<S> where S: Spawner + ?Sized {
 }
 
 
-pub struct EngineSettings<Window> where Window: HasRawWindowHandle + HasRawDisplayHandle {
+pub struct EngineSettings<Window> where Window: wgpu::WindowHandle {
     pub window: Window,
     pub scene: Node,
     pub window_size: WindowSize,
@@ -74,7 +76,7 @@ impl Drop for DepthBuffer {
 
 pub(crate) struct EngineState {
     window_size: WindowSize,
-    surface: wgpu::Surface,
+    surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     depth_buffer: DepthBuffer,
@@ -157,9 +159,7 @@ impl EngineState {
 }
 
 
-pub struct Engine<Window> {
-    // This must be owned by the Engine, for memory safety
-    _window: Window,
+pub struct Engine {
     state: EngineState,
     postprocess: Option<Postprocess>,
     scene: Scene,
@@ -169,20 +169,18 @@ static_assertions::assert_not_impl_all!(EngineState: Send, Sync);
 static_assertions::assert_not_impl_all!(Option<Postprocess>: Send, Sync);
 static_assertions::assert_not_impl_all!(Scene: Send, Sync);
 
-impl<Window> Engine<Window> where Window: HasRawWindowHandle + HasRawDisplayHandle {
-    pub async fn new(settings: EngineSettings<Window>) -> Self {
+impl Engine {
+    pub async fn new<Window>(settings: EngineSettings<Window>) -> Self where Window: wgpu::WindowHandle + 'static {
         let window = settings.window;
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::GL,
             dx12_shader_compiler: Default::default(),
+            flags: wgpu::InstanceFlags::default(),
+            gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
         });
 
-        // # Safety
-        //
-        // The surface needs to live as long as the window that created it.
-        // Engine owns the window so this should be safe.
-        let surface = unsafe { instance.create_surface(&window) }.unwrap();
+        let surface = instance.create_surface(window).unwrap();
 
         let adapter = instance.request_adapter(
             &wgpu::RequestAdapterOptions {
@@ -194,13 +192,14 @@ impl<Window> Engine<Window> where Window: HasRawWindowHandle + HasRawDisplayHand
 
         let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
-                features: wgpu::Features::empty(),
+                required_features: wgpu::Features::empty(),
                 // WebGL doesn't support all of wgpu's features, so if
                 // we're building for the web we'll have to disable some.
-                limits: wgpu::Limits {
+                required_limits: wgpu::Limits {
                     max_texture_dimension_2d: 8192,
                     ..wgpu::Limits::downlevel_webgl2_defaults()
                 },
+                memory_hints: wgpu::MemoryHints::default(),
                 label: None,
             },
             None,
@@ -221,6 +220,7 @@ impl<Window> Engine<Window> where Window: HasRawWindowHandle + HasRawDisplayHand
             height: settings.window_size.height,
             present_mode: surface_caps.present_modes[0],
             alpha_mode: surface_caps.alpha_modes[0],
+            desired_maximum_frame_latency: 2,
             view_formats: vec![],
         };
 
@@ -243,7 +243,6 @@ impl<Window> Engine<Window> where Window: HasRawWindowHandle + HasRawDisplayHand
         //let postprocess = Some(Postprocess::new(&state));
 
         Self {
-            _window: window,
             state,
             postprocess,
             scene,
@@ -287,7 +286,7 @@ impl<Window> Engine<Window> where Window: HasRawWindowHandle + HasRawDisplayHand
                                 b: 0.0,
                                 a: 1.0,
                             }),
-                            store: true,
+                            store: wgpu::StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
@@ -295,18 +294,20 @@ impl<Window> Engine<Window> where Window: HasRawWindowHandle + HasRawDisplayHand
                         depth_ops: Some(wgpu::Operations {
                             // TODO use reverse z-order
                             load: wgpu::LoadOp::Clear(0.0),
-                            store: true,
+                            store: wgpu::StoreOp::Store,
                         }),
                         stencil_ops: if self.state.depth_buffer.has_stencil() {
                             Some(wgpu::Operations {
                                 load: wgpu::LoadOp::Clear(0),
-                                store: true,
+                                store: wgpu::StoreOp::Store,
                             })
 
                         } else {
                             None
                         },
                     }),
+                    occlusion_query_set: None,
+                    timestamp_writes: None,
                 });
 
                 scene_prerender.render(&mut render_pass);
@@ -325,10 +326,12 @@ impl<Window> Engine<Window> where Window: HasRawWindowHandle + HasRawDisplayHand
                                 b: 0.0,
                                 a: 1.0,
                             }),
-                            store: true,
+                            store: wgpu::StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
+                    occlusion_query_set: None,
+                    timestamp_writes: None,
                 });
 
                 postprocess.render(&mut render_pass);

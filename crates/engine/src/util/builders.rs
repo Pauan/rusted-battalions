@@ -237,17 +237,21 @@ impl<'a, 'b, 'c> Pipeline<'a, 'b, 'c> {
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: self.vertex_buffers.unwrap_or(&[]),
+                // TODO support settings constants
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: engine.config.format,
                     blend: Some(self.blend_state.unwrap_or_else(|| wgpu::BlendState::REPLACE)),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
+                // TODO support settings constants
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: wgpu::PrimitiveState {
                 topology: self.topology.unwrap_or(wgpu::PrimitiveTopology::TriangleList),
@@ -265,6 +269,8 @@ impl<'a, 'b, 'c> Pipeline<'a, 'b, 'c> {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
+            // TODO support caching
+            cache: None,
         })
     }
 }

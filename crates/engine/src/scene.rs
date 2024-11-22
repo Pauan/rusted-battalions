@@ -955,7 +955,7 @@ impl Texture {
         Self { handle: Handle::new() }
     }
 
-    pub fn load<Window, T>(&self, engine: &mut crate::Engine<Window>, image: &T) where T: IntoTexture {
+    pub fn load<T>(&self, engine: &mut crate::Engine, image: &T) where T: IntoTexture {
         let buffer = TextureBuffer::new(&engine.state, image);
 
         engine.scene.textures.insert(&self.handle, buffer);
@@ -965,7 +965,7 @@ impl Texture {
         engine.scene.changed.trigger_render_change();
     }
 
-    pub fn unload<Window>(&self, engine: &mut crate::Engine<Window>) {
+    pub fn unload(&self, engine: &mut crate::Engine) {
         engine.scene.textures.remove(&self.handle);
 
         // TODO maybe this should trigger a relayout ?
@@ -1042,7 +1042,7 @@ impl<'a> Prerender<'a> {
             render_pass.set_pipeline(&self.pipeline);
 
             for (index, bind_group) in self.bind_groups.iter().enumerate() {
-                render_pass.set_bind_group(index as u32, bind_group, &[]);
+                render_pass.set_bind_group(index as u32, Some(*bind_group), &[]);
             }
 
             {

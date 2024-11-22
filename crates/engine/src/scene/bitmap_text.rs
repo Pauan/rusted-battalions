@@ -560,7 +560,7 @@ impl BitmapFont {
         Self { handle: Handle::new() }
     }
 
-    pub fn load<'a, Window>(&self, engine: &mut Engine<Window>, settings: BitmapFontSettings<'a>) {
+    pub fn load<'a>(&self, engine: &mut Engine, settings: BitmapFontSettings<'a>) {
         let texture = engine.scene.textures.get(&settings.texture.handle)
             .expect("BitmapFontSettings texture is not loaded");
 
@@ -572,7 +572,7 @@ impl BitmapFont {
         engine.scene.changed.trigger_layout_change();
     }
 
-    pub fn unload<Window>(&self, engine: &mut Engine<Window>) {
+    pub fn unload(&self, engine: &mut Engine) {
         engine.scene.renderer.bitmap_text.remove_font(&self.handle);
 
         // TODO test this

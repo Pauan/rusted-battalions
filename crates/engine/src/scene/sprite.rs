@@ -754,7 +754,7 @@ impl Spritesheet {
         Self { handle: Handle::new() }
     }
 
-    pub fn load<'a, 'b, Window>(&self, engine: &mut crate::Engine<Window>, settings: SpritesheetSettings<'a, 'b>) {
+    pub fn load<'a, 'b>(&self, engine: &mut crate::Engine, settings: SpritesheetSettings<'a, 'b>) {
         let texture = engine.scene.textures.get(&settings.texture.handle)
             .expect("SpritesheetSettings texture is not loaded");
 
@@ -769,7 +769,7 @@ impl Spritesheet {
         engine.scene.changed.trigger_layout_change();
     }
 
-    pub fn unload<Window>(&self, engine: &mut crate::Engine<Window>) {
+    pub fn unload(&self, engine: &mut crate::Engine) {
         engine.scene.renderer.sprite.remove_spritesheet(&self.handle);
 
         // TODO test this

@@ -14,7 +14,7 @@ webgl = ["wgpu/webgl"]
 unicode = ["unicode-width", "unicode-segmentation"]
 
 [dependencies]
-raw-window-handle = "0.5.2"
+raw-window-handle = "0.6.2"
 static_assertions = "1.1.0"
 futures-signals = "0.3.32"
 futures = "0.3.28"
@@ -23,7 +23,7 @@ futures = "0.3.28"
 log = "0.4.20"
 
 [dependencies.unicode-width]
-version = "0.1.10"
+version = "0.2.0"
 optional = true
 
 [dependencies.unicode-segmentation]
@@ -31,7 +31,7 @@ version = "1.10.1"
 optional = true
 
 [dependencies.image]
-version = "0.24.7"
+version = "0.25.5"
 default-features = false
 
 [dependencies.bytemuck]
@@ -41,7 +41,7 @@ features = [
 ]
 
 [dependencies.wgpu]
-version = "0.17.0"
+version = "23.0.0"
 
 [dependencies.wgpu-helpers]
 path = "../wgpu-helpers"

@@ -1,6 +1,5 @@
 use wasm_bindgen::prelude::*;
 
-mod window;
 mod renderer;
 mod app;
 
