@@ -1,12 +1,12 @@
 use std::sync::Arc;
-use futures_signals::signal::SignalExt;
+use futures_signals::signal::{SignalExt};
 use rusted_battalions_engine as engine;
 use rusted_battalions_engine::{SpriteBuilder, Size, Offset, Tile, Node, ParentWidth, ParentHeight, Order};
 
 use crate::grid::{Game, Grid, Coord, TERRAIN_ANIMATION_TIME, FOG_ANIMATION_TIME};
 use crate::util::random::{random};
 
-mod ocean;
+mod sea;
 mod river;
 mod shoal;
 
@@ -23,21 +23,22 @@ pub(crate) struct TerrainFlag(u32);
 impl TerrainFlag {
     const ANY: Self      = Self(0xffffffff);
 
-    const EMPTY: Self    = Self(0b000000000001);
-    const GRASS: Self    = Self(0b000000000010);
-    const ROAD: Self     = Self(0b000000000100);
-    const BRIDGE: Self   = Self(0b000000001000);
-    const FOREST: Self   = Self(0b000000010000);
-    const MOUNTAIN: Self = Self(0b000000100000);
-    const PIPE: Self     = Self(0b000001000000);
-    const PIPESEAM: Self = Self(0b000010000000);
-    const OCEAN: Self    = Self(0b000100000000);
-    const RIVER: Self    = Self(0b001000000000);
-    const SHOAL: Self    = Self(0b010000000000);
-    const REEF: Self     = Self(0b100000000000);
+    const EMPTY: Self    = Self(0b00000000000000000000000000000001);
+    const PLAIN: Self    = Self(0b00000000000000000000000000000010);
+    const ROAD: Self     = Self(0b00000000000000000000000000000100);
+    const WOOD: Self     = Self(0b00000000000000000000000000001000);
+    const MOUNTAIN: Self = Self(0b00000000000000000000000000010000);
+    const PIPELINE: Self = Self(0b00000000000000000000000000100000);
+    const PIPESEAM: Self = Self(0b00000000000000000000000001000000);
+    const RIVER: Self    = Self(0b00000000000000000000000010000000);
+    const SEA: Self      = Self(0b00000000000000000000000100000000);
+    const SHOAL: Self    = Self(0b00000000000000000000001000000000);
+    const REEF: Self     = Self(0b00000000000000000000010000000000);
+    const BRIDGE: Self   = Self(0b00000000000000000000100000000000);
+    const SILO: Self     = Self(0b00000000000000000001000000000000);
 
-    const PIPES: Self    = Self::PIPE.or(Self::PIPESEAM);
-    const WATER: Self    = Self::OCEAN.or(Self::RIVER).or(Self::SHOAL).or(Self::REEF).or(Self::BRIDGE).or(Self::EMPTY);
+    const PIPES: Self    = Self::PIPELINE.or(Self::PIPESEAM);
+    const WATER: Self    = Self::SEA.or(Self::RIVER).or(Self::SHOAL).or(Self::REEF).or(Self::BRIDGE).or(Self::EMPTY);
     const GROUND: Self   = Self::WATER.not();
 }
 
@@ -95,6 +96,24 @@ impl TerrainFlag {
     const fn or(self, rhs: Self) -> Self {
         Self(self.0 | rhs.0)
     }
+
+    pub fn from_tile(class: &TerrainClass) -> Self {
+        match class {
+            TerrainClass::Empty => Self::EMPTY,
+            TerrainClass::Grass => Self::PLAIN,
+            TerrainClass::Road { .. } => Self::ROAD,
+            TerrainClass::Forest => Self::WOOD,
+            TerrainClass::Mountain { .. } => Self::MOUNTAIN,
+            TerrainClass::Pipeline => Self::PIPELINE,
+            TerrainClass::Pipeseam { .. } => Self::PIPESEAM,
+            TerrainClass::River => Self::RIVER,
+            TerrainClass::Ocean => Self::SEA,
+            TerrainClass::Shoal => Self::SHOAL,
+            TerrainClass::Reef => Self::REEF,
+            TerrainClass::Bridge { .. } => Self::BRIDGE,
+            //TerrainClass::Silo { .. } => Self::SILO,
+        }
+    }
 }
 
 
@@ -105,6 +124,23 @@ pub struct Terrain {
 }
 
 impl Terrain {
+    /*pub fn from_map(map: &Map) -> Self {
+        let tiles = map.tiles().map(|tile| {
+            TerrainTile::new(tile.coord.x, tile.coord.y, tile.class)
+        }).collect();
+
+        let mut terrain = Terrain {
+            width: map.width,
+            height: map.height,
+            tiles,
+        };
+
+        terrain.update_tiles();
+
+        terrain
+    }*/
+
+
     pub fn new(width: u32, height: u32) -> Self {
         let mut tiles = Vec::with_capacity(width as usize * height as usize);
 
@@ -420,7 +456,7 @@ pub enum TerrainClass {
     Mountain {
         variant: u32,
     },
-    Pipe,
+    Pipeline,
     Pipeseam {
         destroyed: bool,
     },
@@ -438,7 +474,7 @@ impl TerrainClass {
         Self::Bridge { orientation: Orientation::Horizontal },
         Self::Forest,
         Self::Mountain { variant: 0 },
-        Self::Pipe,
+        Self::Pipeline,
         Self::Pipeseam { destroyed: false, },
         Self::Ocean,
         Self::River,
@@ -449,14 +485,14 @@ impl TerrainClass {
     fn flag(&self) -> TerrainFlag {
         match self {
             Self::Empty => TerrainFlag::EMPTY,
-            Self::Grass => TerrainFlag::GRASS,
+            Self::Grass => TerrainFlag::PLAIN,
             Self::Road { .. } => TerrainFlag::ROAD,
             Self::Bridge { .. } => TerrainFlag::BRIDGE,
-            Self::Forest => TerrainFlag::FOREST,
+            Self::Forest => TerrainFlag::WOOD,
             Self::Mountain { .. } => TerrainFlag::MOUNTAIN,
-            Self::Pipe => TerrainFlag::PIPE,
+            Self::Pipeline => TerrainFlag::PIPELINE,
             Self::Pipeseam { .. } => TerrainFlag::PIPESEAM,
-            Self::Ocean => TerrainFlag::OCEAN,
+            Self::Ocean => TerrainFlag::SEA,
             Self::River => TerrainFlag::RIVER,
             Self::Shoal => TerrainFlag::SHOAL,
             Self::Reef => TerrainFlag::REEF,
@@ -533,8 +569,8 @@ impl TileInfo {
     }
 
 
-    fn new_ocean(adjacent: &Adjacent) -> Self {
-        for rule in ocean::rules() {
+    fn new_sea(adjacent: &Adjacent) -> Self {
+        for rule in sea::rules() {
             if rule.matches(adjacent) {
                 return Self {
                     tile_x: rule.tile_x * TILE_SIZE,
@@ -717,11 +753,12 @@ impl TileInfo {
             },
 
             TerrainClass::Road { ruins } => Self::new_road(adjacent, ruins),
-            TerrainClass::Pipe => Self::new_pipe(adjacent),
+            TerrainClass::Pipeline => Self::new_pipe(adjacent),
             TerrainClass::Pipeseam { destroyed } => Self::new_pipeseam(adjacent, destroyed),
-            TerrainClass::Ocean => Self::new_ocean(adjacent),
+            TerrainClass::Ocean => Self::new_sea(adjacent),
             TerrainClass::River => Self::new_river(adjacent),
             TerrainClass::Shoal => Self::new_shoal(adjacent),
+            //TerrainClass::Silo { has_missile } => Self::new_silo(has_missile),
         }
     }
 }
@@ -735,6 +772,15 @@ pub struct TerrainTile {
 }
 
 impl TerrainTile {
+    fn new(x: u32, y: u32, class: TerrainClass) -> Self {
+        Self {
+            x,
+            y,
+            class,
+            info: TileInfo::ERROR,
+        }
+    }
+
     fn empty(x: u32, y: u32) -> Self {
         Self {
             x,
@@ -803,7 +849,7 @@ impl TerrainTile {
                 .build())
 
             .child(engine::Sprite::builder()
-                .alpha_signal(grid.animation(FOG_ANIMATION_TIME).map(move |time| {
+                /*.alpha_signal(grid.animation(FOG_ANIMATION_TIME).map(move |time| {
                     let time = (time % 2.0) as f32;
 
                     if time > 1.0 {
@@ -812,7 +858,13 @@ impl TerrainTile {
                     } else {
                         time
                     }
-                }))
+                }))*/
+
+                .alpha(if coord.x > 16.0 {
+                    1.0
+                } else {
+                    0.0
+                })
 
                 .spritesheet(game.spritesheets.terrain.clone())
                 .apply(tile_animation(grid, this.info))

@@ -2,7 +2,7 @@ use super::{TerrainRule, TerrainFlag};
 
 const EMPTY: TerrainFlag = TerrainFlag::EMPTY;
 const GROUND: TerrainFlag = TerrainFlag::GROUND;
-const OCEAN: TerrainFlag = TerrainFlag::OCEAN;
+const SEA: TerrainFlag = TerrainFlag::SEA;
 const SHOAL: TerrainFlag = TerrainFlag::SHOAL;
 const ANY: TerrainFlag = TerrainFlag::ANY;
 const WATER: TerrainFlag = TerrainFlag::WATER;
@@ -192,7 +192,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             up: GROUND,
             down: SHOAL,
             left: GROUND,
-            right: OCEAN,
+            right: SEA,
 
             up_left: ANY,
             up_right: ANY,
@@ -205,7 +205,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_y: y + 0,
 
             up: GROUND,
-            down: OCEAN,
+            down: SEA,
             left: SHOAL,
             right: GROUND,
 
@@ -221,7 +221,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
 
             up: SHOAL,
             down: GROUND,
-            left: OCEAN,
+            left: SEA,
             right: GROUND,
 
             up_left: WATER,
@@ -237,7 +237,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             up: SHOAL,
             down: GROUND,
             left: GROUND,
-            right: OCEAN,
+            right: SEA,
 
             up_left: ANY,
             up_right: WATER,
@@ -250,7 +250,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_y: y + 0,
 
             up: GROUND,
-            down: OCEAN,
+            down: SEA,
             left: GROUND,
             right: SHOAL,
 
@@ -266,7 +266,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
 
             up: GROUND,
             down: SHOAL,
-            left: OCEAN,
+            left: SEA,
             right: GROUND,
 
             up_left: ANY,
@@ -279,7 +279,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_x: x + 10,
             tile_y: y + 1,
 
-            up: OCEAN,
+            up: SEA,
             down: GROUND,
             left: SHOAL,
             right: GROUND,
@@ -294,7 +294,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_x: x + 9,
             tile_y: y + 1,
 
-            up: OCEAN,
+            up: SEA,
             down: GROUND,
             left: GROUND,
             right: SHOAL,
@@ -312,9 +312,9 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_y: y + 0,
 
             up: GROUND,
-            down: OCEAN,
+            down: SEA,
             left: GROUND,
-            right: OCEAN,
+            right: SEA,
 
             up_left: ANY,
             up_right: ANY,
@@ -327,8 +327,8 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_y: y + 0,
 
             up: GROUND,
-            down: OCEAN,
-            left: OCEAN,
+            down: SEA,
+            left: SEA,
             right: GROUND,
 
             up_left: ANY,
@@ -341,9 +341,9 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_x: x + 6,
             tile_y: y + 2,
 
-            up: OCEAN,
+            up: SEA,
             down: GROUND,
-            left: OCEAN,
+            left: SEA,
             right: GROUND,
 
             up_left: WATER,
@@ -356,10 +356,10 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_x: x + 4,
             tile_y: y + 2,
 
-            up: OCEAN,
+            up: SEA,
             down: GROUND,
             left: GROUND,
-            right: OCEAN,
+            right: SEA,
 
             up_left: ANY,
             up_right: WATER,
@@ -438,7 +438,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             up: GROUND,
             down: WATER,
             left: SHOAL,
-            right: OCEAN,
+            right: SEA,
 
             up_left: ANY,
             up_right: ANY,
@@ -452,7 +452,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
 
             up: GROUND,
             down: WATER,
-            left: OCEAN,
+            left: SEA,
             right: SHOAL,
 
             up_left: ANY,
@@ -465,7 +465,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_x: x + 14,
             tile_y: y + 0,
 
-            up: OCEAN,
+            up: SEA,
             down: SHOAL,
             left: WATER,
             right: GROUND,
@@ -481,7 +481,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_y: y + 1,
 
             up: SHOAL,
-            down: OCEAN,
+            down: SEA,
             left: WATER,
             right: GROUND,
 
@@ -495,7 +495,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_x: x + 13,
             tile_y: y + 0,
 
-            up: OCEAN,
+            up: SEA,
             down: SHOAL,
             left: GROUND,
             right: WATER,
@@ -511,7 +511,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_y: y + 1,
 
             up: SHOAL,
-            down: OCEAN,
+            down: SEA,
             left: GROUND,
             right: WATER,
 
@@ -528,7 +528,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             up: WATER,
             down: GROUND,
             left: SHOAL,
-            right: OCEAN,
+            right: SEA,
 
             up_left: WATER,
             up_right: WATER,
@@ -542,7 +542,7 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
 
             up: WATER,
             down: GROUND,
-            left: OCEAN,
+            left: SEA,
             right: SHOAL,
 
             up_left: WATER,
@@ -559,8 +559,8 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
 
             up: GROUND,
             down: WATER,
-            left: OCEAN,
-            right: OCEAN,
+            left: SEA,
+            right: SEA,
 
             up_left: ANY,
             up_right: ANY,
@@ -572,8 +572,8 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_x: x + 6,
             tile_y: y + 1,
 
-            up: OCEAN,
-            down: OCEAN,
+            up: SEA,
+            down: SEA,
             left: WATER,
             right: GROUND,
 
@@ -587,8 +587,8 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
             tile_x: x + 4,
             tile_y: y + 1,
 
-            up: OCEAN,
-            down: OCEAN,
+            up: SEA,
+            down: SEA,
             left: GROUND,
             right: WATER,
 
@@ -604,8 +604,8 @@ pub(crate) fn rules() -> impl Iterator<Item = TerrainRule> {
 
             up: WATER,
             down: GROUND,
-            left: OCEAN,
-            right: OCEAN,
+            left: SEA,
+            right: SEA,
 
             up_left: WATER,
             up_right: WATER,

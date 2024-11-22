@@ -20,6 +20,7 @@ enum LayoutAttr {
     StepMode(Span, Ident),
 
     /// #[layout(location = 0)]
+    #[allow(dead_code)]
     Location(Span, u32),
 
     /// #[layout(format = Sint8x4)]

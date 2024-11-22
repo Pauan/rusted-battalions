@@ -7,6 +7,7 @@ use std::sync::{Arc};
 use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle};
 use futures_signals::signal::{Mutable, Signal, SignalExt};
 use dominator::clone;
+use futures::future::join;
 
 use rusted_battalions_engine as engine;
 use rusted_battalions_engine::{
@@ -18,7 +19,7 @@ use rusted_battalions_engine::{
 };
 
 use crate::util::future::executor;
-use grid::{ScreenSize};
+use grid::{ScreenSize, UNIT_MOVE_TIME};
 
 pub use grid::{Grid};
 
@@ -672,6 +673,45 @@ impl Game {
             })).collect::<Vec<_>>();
 
             grid.spawn_futures(futures);*/
+
+
+            /*game.apply_action(Action {
+                reactions: Vec![
+
+                ],
+            }).await;*/
+
+
+            let futures = units.iter().map(clone!(grid => move |unit| {
+                let unit = unit.clone();
+
+                clone!(grid => async move {
+                    loop {
+                        grid.move_unit(&unit, MoveDirection::Right, 3.0).await;
+
+                        join(
+                            grid.move_unit(&unit, MoveDirection::Right, 1.0),
+                            grid.hide_unit(&unit, UNIT_MOVE_TIME),
+                        ).await;
+
+                        //grid.move_unit(&unit, MoveDirection::Up, 3.0).await;
+                        //grid.move_unit(&unit, MoveDirection::Down, 1.0).await;
+
+                        grid.wait(1000.0).await;
+
+                        join(
+                            grid.move_unit(&unit, MoveDirection::Left, 1.0),
+                            grid.show_unit(&unit, UNIT_MOVE_TIME),
+                        ).await;
+
+                        grid.move_unit(&unit, MoveDirection::Left, 3.0).await;
+
+                        grid.wait(1000.0).await;
+                    }
+                })
+            })).collect::<Vec<_>>();
+
+            grid.spawn_futures(futures);
         }
     }
 }

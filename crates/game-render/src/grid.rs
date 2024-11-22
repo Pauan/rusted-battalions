@@ -22,11 +22,14 @@ pub mod building;
 pub mod explosion;
 
 
-const UNIT_ANIMATION_TIME: f64 = 250.0;
-const EXPLOSION_ANIMATION_TIME: f64 = 500.0;
-const BUILDING_ANIMATION_TIME: f64 = 500.0;
-const TERRAIN_ANIMATION_TIME: f64 = 500.0;
-const FOG_ANIMATION_TIME: f64 = 1000.0;
+pub(crate) const UNIT_ANIMATION_TIME: f64 = 250.0;
+pub(crate) const EXPLOSION_ANIMATION_TIME: f64 = 500.0;
+pub(crate) const BUILDING_ANIMATION_TIME: f64 = 500.0;
+pub(crate) const TERRAIN_ANIMATION_TIME: f64 = 500.0;
+pub(crate) const FOG_ANIMATION_TIME: f64 = 1000.0;
+
+// Number of milliseconds to move 1 tile
+pub(crate) const UNIT_MOVE_TIME: f64 = 200.0;
 
 
 fn lerp_f32(from: f32, to: f32, percent: f32) -> f32 {
@@ -364,21 +367,21 @@ impl Grid {
             (0, 7, TerrainClass::Bridge { orientation: Orientation::Vertical }),
             (1, 7, TerrainClass::Bridge { orientation: Orientation::Horizontal }),
 
-            (0, 9, TerrainClass::Pipe),
+            (0, 9, TerrainClass::Pipeline),
             (1, 9, TerrainClass::Pipeseam { destroyed: false }),
-            (2, 9, TerrainClass::Pipe),
+            (2, 9, TerrainClass::Pipeline),
 
-            (0, 11, TerrainClass::Pipe),
+            (0, 11, TerrainClass::Pipeline),
             (1, 11, TerrainClass::Pipeseam { destroyed: true }),
-            (2, 11, TerrainClass::Pipe),
+            (2, 11, TerrainClass::Pipeline),
 
-            (0, 13, TerrainClass::Pipe),
+            (0, 13, TerrainClass::Pipeline),
             (0, 14, TerrainClass::Pipeseam { destroyed: false }),
-            (0, 15, TerrainClass::Pipe),
+            (0, 15, TerrainClass::Pipeline),
 
-            (2, 13, TerrainClass::Pipe),
+            (2, 13, TerrainClass::Pipeline),
             (2, 14, TerrainClass::Pipeseam { destroyed: true }),
-            (2, 15, TerrainClass::Pipe),
+            (2, 15, TerrainClass::Pipeline),
         ];
 
         fn test_all(tiles: &mut Vec<(u32, u32, TerrainClass)>, x: u32, y: u32, class: TerrainClass) {
@@ -475,7 +478,7 @@ impl Grid {
             ]);
         }
 
-        test_all(&mut tiles, 4, 1, TerrainClass::Pipe);
+        test_all(&mut tiles, 4, 1, TerrainClass::Pipeline);
         test_all(&mut tiles, 12, 1, TerrainClass::Road { ruins: false });
         test_all(&mut tiles, 20, 1, TerrainClass::Road { ruins: true });
         test_all(&mut tiles, 28, 1, TerrainClass::Ocean);

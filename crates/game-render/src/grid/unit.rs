@@ -201,6 +201,7 @@ impl UnitAnimation {
 
 pub struct Unit {
     pub coord: Mutable<Coord>,
+    pub alpha: Mutable<f32>,
     pub animation: Mutable<UnitAnimation>,
     pub waited: Mutable<bool>,
     pub nation: Nation,
@@ -211,6 +212,7 @@ impl Unit {
     pub fn new(coord: Coord, class: UnitClass, nation: Nation) -> Arc<Self> {
         Arc::new(Self {
             coord: Mutable::new(coord),
+            alpha: Mutable::new(1.0),
             animation: Mutable::new(UnitAnimation::Idle),
             waited: Mutable::new(false),
             nation,
@@ -254,7 +256,9 @@ impl Unit {
                 Order::Parent(grid.order(coord) + (4.0 / 6.0))
             })).dedupe())
 
-            .alpha_signal(grid.animation(FOG_ANIMATION_TIME).map(move |time| {
+            .alpha_signal(this.alpha.signal())
+
+            /*.alpha_signal(grid.animation(FOG_ANIMATION_TIME).map(move |time| {
                 let time = (time % 2.0) as f32;
 
                 if time > 1.0 {
@@ -263,7 +267,7 @@ impl Unit {
                 } else {
                     1.0 - time
                 }
-            }))
+            }))*/
 
             .tile_signal(map_ref! {
                 let tile_x = this.tile_x(),

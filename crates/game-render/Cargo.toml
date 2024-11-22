@@ -30,3 +30,6 @@ features = [
 
 [dependencies.rusted-battalions-engine]
 path = "../engine"
+
+#[dependencies.rusted-battalions-game-logic]
+#path = "../game-logic"

@@ -3,7 +3,7 @@ use std::future::Future;
 use futures_signals::signal::{SignalExt};
 use dominator::clone;
 
-use crate::grid::{EXPLOSION_ANIMATION_TIME, Grid, Coord};
+use crate::grid::{EXPLOSION_ANIMATION_TIME, UNIT_MOVE_TIME, Grid, Coord};
 use crate::grid::unit::{Unit, UnitAnimation};
 use crate::grid::explosion::{Explosion, ExplosionAnimation};
 
@@ -59,7 +59,7 @@ impl Grid {
 
             unit.animation.set_neq(direction.animation());
 
-            grid.timer((length as f64) * 200.0)
+            grid.timer((length as f64) * UNIT_MOVE_TIME)
                 .for_each(clone!(unit => move |percent| {
                     unit.coord.set(start.lerp(end, percent as f32));
                     async {}
@@ -85,6 +85,34 @@ impl Grid {
                 })).await;
 
             grid.explosions.remove(&explosion);
+        }
+    }
+
+
+    pub fn hide_unit(self: &Arc<Self>, unit: &Arc<Unit>, time: f64) -> impl Future<Output = ()> + Send {
+        let grid = self.clone();
+        let unit = unit.clone();
+
+        async move {
+            grid.timer(time)
+                .for_each(move |percent| {
+                    unit.alpha.set((1.0 - percent) as f32);
+                    async {}
+                }).await;
+        }
+    }
+
+
+    pub fn show_unit(self: &Arc<Self>, unit: &Arc<Unit>, time: f64) -> impl Future<Output = ()> + Send {
+        let grid = self.clone();
+        let unit = unit.clone();
+
+        async move {
+            grid.timer(time)
+                .for_each(move |percent| {
+                    unit.alpha.set(percent as f32);
+                    async {}
+                }).await;
         }
     }
 
